@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake *)",
+      "Bash(ctest *)",
+      "Bash({./,}build/debug/xq)",
+      "Bash({./,}build/release/xq)",
+      "Bash({./,}{.claude,.agents}/skills/upgrading-api-version/scripts/fetch_latest_api_ver.sh)",
+      "Bash({./,}{.claude,.agents}/skills/upgrading-api-version/scripts/fetch_migration_guides.sh)",
+      "Bash({./,}{.claude,.agents}/skills/upgrading-api-version/scripts/parse_current_api_ver.sh)",
+      "Bash({./,}{.claude,.agents}/skills/working-on-tasks/scripts/find_task.sh *)",
+      "Bash({./,}{.claude,.agents}/skills/working-on-tasks/scripts/next_task.sh)",
+      "Bash({./,}{.claude,.agents}/skills/adding-unittests/scripts/find_fr.sh *)",
+      "Bash({./,}{.claude,.agents}/skills/*/scripts/*.sh)",
+      "Bash(git status*)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Read",
+      "Write",
+      "Glob",
+      "Grep",
+      "Edit",
+      "MultiEdit"
+    ]
+  }
+}

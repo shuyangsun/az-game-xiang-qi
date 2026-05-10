@@ -1,0 +1,79 @@
+# Allow file editing tools
+[[rule]]
+toolName = ["edit_file", "write_file", "replace"]
+decision = "allow"
+priority = 100
+
+# Allow specific shell commands
+[[rule]]
+commandPrefix = [
+  "cmake",
+  "ctest",
+  "./build/debug/",
+  "./build/release/",
+  "./scripts/",
+  "grep",
+  "find",
+  "cat",
+  "ls",
+  "head",
+  "tail",
+  "wc",
+]
+decision = "allow"
+priority = 100
+
+# Allow git read-only commands
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = [
+  "git status",
+  "git diff",
+  "git log",
+  "git show",
+  "git branch",
+  "git tag",
+  "git remote",
+  "git stash list",
+  "git rev-parse",
+  "git ls-files",
+  "git blame",
+]
+decision = "allow"
+priority = 100
+
+# Allow git write commands (non-destructive)
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = [
+  "git add",
+  "git stash",
+  "git checkout",
+  "git switch",
+  "git fetch",
+  "git pull",
+  "git merge",
+  "git rebase",
+  "git restore",
+  "git reset",
+  "git clean",
+]
+decision = "allow"
+priority = 100
+
+# Ask user for git commit and push
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = [
+  "git commit",
+  "git push",
+]
+decision = "ask_user"
+priority = 100
+
+# Deny all other shell commands
+[[rule]]
+toolName = "run_shell_command"
+decision = "deny"
+priority = 50
+denyMessage = "Only cmake, ctest, build executables, scripts, git commands, and common Unix utilities are allowed."

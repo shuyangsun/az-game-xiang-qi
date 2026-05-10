@@ -1,0 +1,6 @@
+---
+Language: Cpp
+BasedOnStyle: Google
+Standard: c++20
+DerivePointerAlignment: false
+PointerAlignment: Left
