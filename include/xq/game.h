@@ -137,6 +137,20 @@ class XqGame {
       static_cast<std::size_t>(kBoardCells) * kBoardCells;
 
   /**
+   * @brief Per-state legal-action ceiling for the dense policy head.
+   *
+   * Xiang Qi keeps the canonical AlphaZero dense layout
+   * (`kPolicySize == 8100`, well below the 10⁴ rule-of-thumb cutoff
+   * for switching to a compact head), so the per-state legal-action
+   * cap is the full policy width. `XqSerializer` /
+   * `XqDeserializer` scatter and gather over the full `kPolicySize`
+   * slots; the actual per-state legal-action count is far smaller,
+   * but the network and replay-buffer layout are sized for the
+   * dense policy head, not for the tightest legal-move bound.
+   */
+  static constexpr std::size_t kMaxLegalActions = kPolicySize;
+
+  /**
    * @brief Self-play hard cap on `CurrentRound()`.
    *
    * 300 plies (150 moves per side) — generous headroom over typical
