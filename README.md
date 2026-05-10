@@ -1,6 +1,6 @@
 # Xiang Qi
 
-**TODO(TASK-UPDATE-README)**: add a one-sentence game description for Xiang Qi AlphaZero implementation.
+C++ implementation of Xiang Qi (Chinese Chess) game logic for the [alpha-zero-api](https://github.com/shuyangsun/alpha-zero-api) AlphaZero training and inference framework.
 
 ## Getting Started
 

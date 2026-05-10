@@ -1,45 +1,123 @@
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 #include "include/xq/game.h"
+#include "src/xq/game/internal.h"
 
 namespace az::game::xq {
 
-std::vector<XqA> XqGame::ValidActions() const noexcept {
-  // TODO(TASK-GAME-ACTION-IMPL): implementation. Must be deterministic in
-  // the game state and empty iff `IsOver()` returns `true`.
+namespace {
 
-  return {};
+using ::az::game::xq::internal::EmitPseudoLegalMoves;
+using ::az::game::xq::internal::IsFlyingGenerals;
+using ::az::game::xq::internal::IsInCheck;
+using ::az::game::xq::internal::kZobristBlackToMove;
+using ::az::game::xq::internal::kZobristPieceKeys;
+using ::az::game::xq::internal::ZobristPieceIndex;
+
+// Pack the captured piece into one byte for `apply_undo_log_`. Bit
+// layout:
+//   bit 7: 1 if captured piece was Black, 0 otherwise.
+//   bits 0..6: piece-type magnitude (0 if no capture).
+constexpr uint8_t PackCaptured(int8_t code) noexcept {
+  if (code == 0) return 0;
+  const uint8_t magnitude = static_cast<uint8_t>(code > 0 ? code : -code);
+  return static_cast<uint8_t>((code < 0 ? 0x80 : 0) | magnitude);
+}
+
+constexpr int8_t UnpackCaptured(uint8_t packed) noexcept {
+  if (packed == 0) return 0;
+  const int8_t magnitude = static_cast<int8_t>(packed & 0x7F);
+  return (packed & 0x80) ? static_cast<int8_t>(-magnitude) : magnitude;
+}
+
+}  // namespace
+
+std::vector<XqA> XqGame::ValidActions() const noexcept {
+  if (IsOver()) return {};
+
+  std::vector<XqA> pseudo;
+  EmitPseudoLegalMoves(board_, current_player_, pseudo);
+
+  std::vector<XqA> result;
+  result.reserve(pseudo.size());
+
+  // Filter for own-king safety and Flying General. We do this with a
+  // local mutable copy of the board to avoid touching `*this` (which
+  // is `const` here).
+  XqB scratch = board_;
+  for (const XqA& a : pseudo) {
+    const int8_t captured = scratch[a.to];
+    const int8_t mover = scratch[a.from];
+    scratch[a.to] = mover;
+    scratch[a.from] = 0;
+    const bool legal = !IsInCheck(scratch, current_player_) &&
+                       !IsFlyingGenerals(scratch);
+    scratch[a.from] = mover;
+    scratch[a.to] = captured;
+    if (legal) result.push_back(a);
+  }
+  return result;
 }
 
 std::size_t XqGame::PolicyIndex(const XqA& action) const noexcept {
-  // TODO(TASK-GAME-ACTION-IMPL): bijection from action to slot in
-  // `[0, kPolicySize)`.
-
-  return 0;
+  return static_cast<std::size_t>(action.from) * kBoardCells +
+         static_cast<std::size_t>(action.to);
 }
 
 void XqGame::ApplyActionInPlace(const XqA& action) noexcept {
-  // TODO(TASK-GAME-ACTION-IMPL): apply `action` to this state in place.
-  // Update `board_`, `cur_player_`, and any history needed by
-  // `UndoLastAction`. Must be allocation-free.
+  const int8_t mover = board_[action.from];
+  const int8_t captured = board_[action.to];
 
-  last_player_ = cur_player_;
-  last_action_ = action;
+  // XOR-out the moving piece on `from` and the captured piece on `to`
+  // (no-op if `to` was empty), then XOR-in the moving piece on `to`.
+  if (mover != 0) {
+    position_hash_ ^=
+        kZobristPieceKeys[action.from][ZobristPieceIndex(mover)];
+    position_hash_ ^= kZobristPieceKeys[action.to][ZobristPieceIndex(mover)];
+  }
+  if (captured != 0) {
+    position_hash_ ^=
+        kZobristPieceKeys[action.to][ZobristPieceIndex(captured)];
+  }
+  // Toggle side-to-move.
+  position_hash_ ^= kZobristBlackToMove;
+
+  board_[action.to] = mover;
+  board_[action.from] = 0;
+  current_player_ = !current_player_;
+
+  if (round_ < kHistoryCap) {
+    action_history_[round_] = action;
+    apply_undo_log_[round_] = PackCaptured(captured);
+    position_history_[round_] = position_hash_;
+  }
   ++round_;
 }
 
 void XqGame::UndoLastAction() noexcept {
-  // TODO(TASK-GAME-ACTION-IMPL): reverse the most recent
-  // `ApplyActionInPlace`. No-op if there is nothing to undo. Must be
-  // allocation-free. The placeholder below only supports a single level of
-  // undo; extend the private state if MCTS will need deeper rollouts.
+  if (round_ == 0) return;
+  --round_;
+  current_player_ = !current_player_;
 
-  if (!last_action_.has_value()) {
-    return;
+  const XqA action = action_history_[round_];
+  const int8_t captured =
+      round_ < kHistoryCap ? UnpackCaptured(apply_undo_log_[round_]) : 0;
+
+  const int8_t mover = board_[action.to];
+  board_[action.from] = mover;
+  board_[action.to] = captured;
+
+  // Reverse the Zobrist updates.
+  position_hash_ ^= kZobristBlackToMove;
+  if (captured != 0) {
+    position_hash_ ^=
+        kZobristPieceKeys[action.to][ZobristPieceIndex(captured)];
   }
-  cur_player_ = last_player_.value_or(cur_player_);
-  last_action_ = std::nullopt;
-  last_player_ = std::nullopt;
-  if (round_ > 0) {
-    --round_;
+  if (mover != 0) {
+    position_hash_ ^= kZobristPieceKeys[action.to][ZobristPieceIndex(mover)];
+    position_hash_ ^= kZobristPieceKeys[action.from][ZobristPieceIndex(mover)];
   }
 }
 

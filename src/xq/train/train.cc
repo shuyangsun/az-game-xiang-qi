@@ -1,5 +1,6 @@
 #include "include/xq/train.h"
 
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -13,24 +14,44 @@ std::vector<std::pair<XqGame, ::az::game::api::TrainingTarget>>
 XqTrainingAugmenter::Augment(
     const XqGame& game,
     const ::az::game::api::TrainingTarget& target) const noexcept {
-  // TODO(TASK-TRAIN-IMPL): generate every augmented training example.
-  // The policy probabilities must be permuted to match the augmented
-  // game's `ValidActions()` ordering so the network learns
-  // symmetry-equivariant policies. `target.z` is preserved unchanged.
-
-  std::vector<XqGame> augmented = internal::AugmentAll(game);
+  // For each augmented variant, permute target.pi so it stays aligned
+  // with the variant's own ValidActions() ordering. target.z is
+  // preserved unchanged because board symmetries are score-preserving.
+  const std::vector<XqA> orig_actions = game.ValidActions();
+  std::vector<XqGame> variants = internal::AugmentAll(game);
 
   std::vector<std::pair<XqGame, ::az::game::api::TrainingTarget>> result;
-  result.reserve(augmented.size());
+  result.reserve(variants.size());
 
-  for (auto&& aug_game : augmented) {
-    // TODO(TASK-TRAIN-IMPL): permute `target.pi` so probabilities stay
-    // aligned with `aug_game.ValidActions()`. Copying `target` unchanged
-    // (as below) trains the network to be augmentation-invariant instead
-    // of equivariant — wrong, but lets the placeholder compile.
-    result.emplace_back(std::move(aug_game), target);
+  // Lookup: original-frame PolicyIndex -> position in target.pi.
+  std::vector<std::size_t> orig_slot(XqGame::kPolicySize,
+                                      orig_actions.size());
+  for (std::size_t i = 0; i < orig_actions.size(); ++i) {
+    orig_slot[game.PolicyIndex(orig_actions[i])] = i;
   }
 
+  for (std::size_t i = 0; i < variants.size(); ++i) {
+    const internal::XqAugmentation sym =
+        static_cast<internal::XqAugmentation>(i);
+    XqGame variant = variants[i];
+    const std::vector<XqA> v_actions = variant.ValidActions();
+
+    std::vector<float> permuted(v_actions.size(), 0.0F);
+    for (std::size_t j = 0; j < v_actions.size(); ++j) {
+      const XqA orig_action =
+          internal::InverseTransformAction(v_actions[j], sym);
+      const std::size_t pidx = game.PolicyIndex(orig_action);
+      if (pidx >= orig_slot.size()) continue;
+      const std::size_t src = orig_slot[pidx];
+      if (src < target.pi.size()) {
+        permuted[j] = target.pi[src];
+      }
+    }
+
+    result.emplace_back(std::move(variant),
+                        ::az::game::api::TrainingTarget{target.z,
+                                                        std::move(permuted)});
+  }
   return result;
 }
 

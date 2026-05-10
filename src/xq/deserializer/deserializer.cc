@@ -1,7 +1,9 @@
 #include "include/xq/deserializer.h"
 
+#include <cstddef>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include "alpha-zero-api/policy_output.h"
 #include "include/xq/game.h"
@@ -10,15 +12,22 @@ namespace az::game::xq {
 
 XqResult<::az::game::api::Evaluation> XqDeserializer::Deserialize(
     const XqGame& game, std::span<const float> output) const noexcept {
-  // TODO(TASK-DESERIALIZER-IMPL): map raw network output to an
-  // `Evaluation` over `game.ValidActions()`. Validate `output.size()`
-  // against the layout produced by
-  // XqSerializer::SerializePolicyOutput, gather
-  // masked policy values via `game.PolicyIndex`, softmax-normalize, and
-  // return std::unexpected(XqError::...) on
-  // mismatch.
+  // Layout (mirrors XqSerializer::SerializePolicyOutput):
+  //   output[0]                   = value scalar
+  //   output[1 + PolicyIndex(a)]  = prior for action `a`
+  // Total length: kPolicySize + 1.
+  constexpr std::size_t kExpected = XqGame::kPolicySize + 1;
+  if (output.size() != kExpected) {
+    return std::unexpected(XqError::kInvalidPolicyOutputSize);
+  }
 
-  return std::unexpected(XqError::kNotImplemented);
+  const std::vector<XqA> actions = game.ValidActions();
+  std::vector<float> probs;
+  probs.reserve(actions.size());
+  for (const XqA& a : actions) {
+    probs.push_back(output[1 + game.PolicyIndex(a)]);
+  }
+  return ::az::game::api::Evaluation{output.front(), std::move(probs)};
 }
 
 }  // namespace az::game::xq
