@@ -83,6 +83,43 @@ Decide and document, in order:
    current-state tokens. Markov games (`kHistoryLookback == 0`) skip
    this entirely.
 
+## Dense vs compact policy head
+
+AlphaZero's published networks emit a dense `kPolicySize` policy
+distribution. For a transformer encoder this is fine when
+`kPolicySize` is at most a few thousand — chess (4672), Go (362),
+tic-tac-toe (9). It becomes wasteful when the action space
+factorizes ((card, target, …), large discrete RTS spaces) and the
+per-state legal-action ceiling `kMaxLegalActions` is orders of
+magnitude smaller than `kPolicySize`.
+
+Decide before you commit to a layout:
+
+- **Pick dense** when `kPolicySize <= 10⁴` or when
+  `kMaxLegalActions` is within ~2× of `kPolicySize`. Use
+  `DefaultPolicyOutputSerializer` / `DefaultPolicyOutputDeserializer`
+  from `defaults/`. This is the safe path; everything in the
+  AlphaZero literature applies unchanged.
+- **Pick compact** when `kPolicySize > 10⁴` AND
+  `kMaxLegalActions / kPolicySize < 0.1`. Use
+  `DefaultCompactPolicyOutputSerializer` /
+  `DefaultCompactPolicyOutputDeserializer`. The transformer's
+  policy head becomes a length-`kMaxLegalActions` row, typically
+  produced by attending the final-layer `[CLS]`-style query over the
+  per-action input tokens (pointer-network head) — this is the
+  transformer-natural shape and was awkward to express under the
+  dense API.
+
+Document the chosen layout up front in
+[memory/serialization_design.md](../../../memory/serialization_design.md).
+The deserializer's I/O width depends on it; downstream
+training-pipeline tooling does too.
+
+If `kPolicySize` and `kMaxLegalActions` differ by less than ~10×,
+default to dense. The compact path's indirection (slot lookup per
+action) is real overhead; compact only wins when it saves an order
+of magnitude on memory and the output projection.
+
 ## Action / policy output — `SerializePolicyOutput`
 
 The `Game` concept fixes a `kPolicySize` slot count and a
@@ -106,12 +143,15 @@ must match what the deserializer reads.** Decide:
    the target so the network learns the mask implicitly. The
    deserializer typically also zeros illegal slots before softmax /
    renormalization. Keep both ends consistent.
-4. **Pointer-style heads (optional).** Transformers can emit a
-   policy by attending over input action tokens rather than indexing
-   a fixed slot. AlphaZero's static `kPolicySize` contract still
-   requires a flat scatter for training labels — if you go this
-   route, document the mapping from "attended action token i" back
-   to `PolicyIndex(action)` so the bijection is preserved.
+4. **Pointer-style heads.** Transformers can emit a policy by
+   attending a query over per-action input tokens. With v0.2.0's
+   compact serializer/deserializer this is a first-class layout —
+   the network produces `kMaxLegalActions` slot logits aligned with
+   `legal_indices`, and `DefaultCompactPolicyOutputDeserializer`
+   reorders them into `ValidActions()` order via `PolicyIndex`. Do
+   **not** flatten back to `kPolicySize` slots if you are using
+   compact; the whole point is to keep the output width
+   proportional to the legal-action ceiling.
 5. **Action factorization (optional).** Composite actions (move
    piece A from X to Y) tempt a multi-token decomposition. Doing so
    breaks the single-distribution AlphaZero contract; only consider
@@ -149,6 +189,29 @@ CNN with rotated planes is. Either:
 
 Pick one and say so in the design doc — the training loop's behavior
 depends on it.
+
+## Worked example — large card-game action space
+
+A trick-taking card game with 60 unique cards, 4 opponents to
+potentially target, and a "discard" option:
+
+- `kPolicySize = 60 * (4 + 1) + 1 = 301` (atomic actions: card ×
+  target choice + a "pass").
+- `kMaxLegalActions = 8` (hand size).
+
+Ratio is `8 / 301 ≈ 2.7%`. Both bars (`> 10⁴` and `< 0.1`) are not
+simultaneously crossed — `kPolicySize` is small enough that dense
+still works fine. **Pick dense.**
+
+A cooperative deckbuilder with ~500 unique cards and combinatorial
+targets:
+
+- `kPolicySize ≈ 500 × 500 = 250,000`.
+- `kMaxLegalActions ≈ 12`.
+
+Ratio is `12 / 250,000 ≈ 0.0048%`. Both bars cleared. **Pick
+compact**, build the head as a pointer-network attending over the
+12 per-action input tokens.
 
 ## Length and format
 
