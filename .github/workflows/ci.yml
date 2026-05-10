@@ -5,15 +5,27 @@ on: [push, pull_request]
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: debug-test
+            build_dir: debug
+          - preset: release-test
+            build_dir: release
+    name: ${{ matrix.preset }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
-      - name: Configure CMake
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build --preset ${{ matrix.preset }}
 
-      - name: Run
-        run: ./build/xq
+      - name: Run binary (terminates on EOF)
+        run: ./build/${{ matrix.build_dir }}/xq </dev/null
+
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
