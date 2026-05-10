@@ -47,7 +47,7 @@ class XqInferenceAugmenter
    *
    * `augmented` and `evaluations` are aligned: `evaluations[i]`
    * corresponds to `augmented[i]`. The returned `Evaluation`'s
-   * probabilities must align with `original.ValidActions()`; the
+   * probabilities must align with `original.ValidActionsInto(...)`; the
    * implementation is responsible for inverting whatever symmetry it
    * applied.
    */

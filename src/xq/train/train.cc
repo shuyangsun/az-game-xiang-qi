@@ -1,5 +1,6 @@
 #include "include/xq/train.h"
 
+#include <array>
 #include <cstddef>
 #include <utility>
 #include <vector>
@@ -15,29 +16,30 @@ XqTrainingAugmenter::Augment(
     const XqGame& game,
     const ::az::game::api::TrainingTarget& target) const noexcept {
   // For each augmented variant, permute target.pi so it stays aligned
-  // with the variant's own ValidActions() ordering. target.z is
+  // with the variant's own ValidActionsInto() ordering. target.z is
   // preserved unchanged because board symmetries are score-preserving.
-  const std::vector<XqA> orig_actions = game.ValidActions();
+  std::array<XqA, XqGame::kMaxLegalActions> orig_actions{};
+  const std::size_t orig_count = game.ValidActionsInto(orig_actions);
   std::vector<XqGame> variants = internal::AugmentAll(game);
 
   std::vector<std::pair<XqGame, ::az::game::api::TrainingTarget>> result;
   result.reserve(variants.size());
 
   // Lookup: original-frame PolicyIndex -> position in target.pi.
-  std::vector<std::size_t> orig_slot(XqGame::kPolicySize,
-                                      orig_actions.size());
-  for (std::size_t i = 0; i < orig_actions.size(); ++i) {
+  std::vector<std::size_t> orig_slot(XqGame::kPolicySize, orig_count);
+  for (std::size_t i = 0; i < orig_count; ++i) {
     orig_slot[game.PolicyIndex(orig_actions[i])] = i;
   }
 
+  std::array<XqA, XqGame::kMaxLegalActions> v_actions{};
   for (std::size_t i = 0; i < variants.size(); ++i) {
     const internal::XqAugmentation sym =
         static_cast<internal::XqAugmentation>(i);
     XqGame variant = variants[i];
-    const std::vector<XqA> v_actions = variant.ValidActions();
+    const std::size_t v_count = variant.ValidActionsInto(v_actions);
 
-    std::vector<float> permuted(v_actions.size(), 0.0F);
-    for (std::size_t j = 0; j < v_actions.size(); ++j) {
+    std::vector<float> permuted(v_count, 0.0F);
+    for (std::size_t j = 0; j < v_count; ++j) {
       const XqA orig_action =
           internal::InverseTransformAction(v_actions[j], sym);
       const std::size_t pidx = game.PolicyIndex(orig_action);

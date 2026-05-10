@@ -1,6 +1,7 @@
 #include "include/xq/serializer.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -65,8 +66,9 @@ std::vector<float> XqSerializer::SerializePolicyOutput(
   std::vector<float> out(XqGame::kPolicySize + 1, 0.0F);
   out[0] = target.z;
 
-  const std::vector<XqA> actions = game.ValidActions();
-  const std::size_t n = std::min(actions.size(), target.pi.size());
+  std::array<XqA, XqGame::kMaxLegalActions> actions{};
+  const std::size_t count = game.ValidActionsInto(actions);
+  const std::size_t n = std::min(count, target.pi.size());
   for (std::size_t i = 0; i < n; ++i) {
     const std::size_t slot = 1 + game.PolicyIndex(actions[i]);
     if (slot < out.size()) {

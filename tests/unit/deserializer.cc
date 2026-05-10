@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 #include "include/xq/deserializer.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 #include "include/xq/serializer.h"
 
 namespace az::game::xq {
@@ -53,7 +54,7 @@ TEST(Deserializer, FR_DES_WRONG_SIZE_RejectsEmpty) {
 
 TEST(Deserializer, FR_DES_PARALLEL_SizeMatchesValidActions) {
   const XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -77,7 +78,7 @@ TEST(Deserializer, FR_DES_VALUE_PASSTHROUGH_OutputZeroIsValue) {
 
 TEST(Deserializer, FR_DES_PARALLEL_GathersByPolicyIndex) {
   const XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -100,7 +101,7 @@ TEST(Deserializer, FR_DES_PARALLEL_GathersByPolicyIndex) {
 
 TEST(Deserializer, FR_DES_ROUNDTRIP_RecoversValueAndProbabilities) {
   const XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";

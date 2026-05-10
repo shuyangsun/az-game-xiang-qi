@@ -8,6 +8,7 @@
 
 #include "gtest/gtest.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 
 namespace az::game::xq {
 namespace {
@@ -97,8 +98,8 @@ TEST(GameAction, FR_API_POLICY_BIJECTION_FromAndToFormula) {
 
 TEST(GameAction, FR_API_VALID_DETERMINISTIC_Initial) {
   const XqGame game;
-  const std::vector<XqA> a = game.ValidActions();
-  const std::vector<XqA> b = game.ValidActions();
+  const std::vector<XqA> a = ValidActions(game);
+  const std::vector<XqA> b = ValidActions(game);
   ASSERT_EQ(a.size(), b.size());
   for (std::size_t i = 0; i < a.size(); ++i) {
     EXPECT_EQ(a[i].from, b[i].from);
@@ -108,7 +109,7 @@ TEST(GameAction, FR_API_VALID_DETERMINISTIC_Initial) {
 
 TEST(GameAction, FR_API_VALID_NO_DUPES_Initial) {
   const XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   std::set<std::pair<uint8_t, uint8_t>> seen;
   for (const XqA& a : actions) {
     EXPECT_TRUE(seen.insert({a.from, a.to}).second)
@@ -119,7 +120,7 @@ TEST(GameAction, FR_API_VALID_NO_DUPES_Initial) {
 
 TEST(GameAction, FR_NO_PASS_NoSentinelInValidActions) {
   const XqGame game;
-  for (const XqA& a : game.ValidActions()) {
+  for (const XqA& a : ValidActions(game)) {
     EXPECT_LT(a.from, kBoardCells);
     EXPECT_LT(a.to, kBoardCells);
     EXPECT_NE(a.from, a.to);  // null move sentinel
@@ -128,7 +129,7 @@ TEST(GameAction, FR_NO_PASS_NoSentinelInValidActions) {
 
 TEST(GameAction, FR_TERM_EMPTY_VALID_RedFreshGameNotEmpty) {
   const XqGame game;
-  EXPECT_FALSE(game.ValidActions().empty());
+  EXPECT_FALSE(ValidActions(game).empty());
   EXPECT_FALSE(game.IsOver());
 }
 
@@ -139,7 +140,7 @@ TEST(GameAction, FR_GEN_ORTH_1_GeneralMovesOneOrthogonal) {
   // plus the opponent General sitting somewhere far so the side-to-move
   // is well-defined and Flying General is irrelevant.
   const XqGame game = MakeGame({{{1, 4}, kRG}, {{9, 0}, kBG}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(1, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(1, 4));
   // The General can move to (0,4), (2,4), (1,3), (1,5).
   EXPECT_TRUE(HasMove(moves, Idx(1, 4), Idx(0, 4)));
   EXPECT_TRUE(HasMove(moves, Idx(1, 4), Idx(2, 4)));
@@ -151,7 +152,7 @@ TEST(GameAction, FR_GEN_ORTH_1_GeneralMovesOneOrthogonal) {
 TEST(GameAction, FR_GEN_PALACE_GeneralCannotLeavePalace) {
   // Red General at (2, 5) — palace edge; (2, 6) is outside palace.
   const XqGame game = MakeGame({{{2, 5}, kRG}, {{9, 3}, kBG}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(2, 5));
+  const auto moves = MovesFrom(ValidActions(game), Idx(2, 5));
   for (const XqA& a : moves) {
     const uint8_t r = a.to / kBoardCols;
     const uint8_t c = a.to % kBoardCols;
@@ -178,7 +179,7 @@ TEST(GameAction, FR_GEN_FLYING_BlocksOpenFile) {
   // remove every such move.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 4}, kBG}, {{3, 4}, kRC}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(3, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(3, 4));
   // ValidActions might still be empty if the position itself is
   // already terminal; but as long as the chariot move list contains
   // any moves, every one must keep col 4 occupied (i.e., the chariot
@@ -198,7 +199,7 @@ TEST(GameAction, FR_ADV_DIAG_1_AdvisorDiagonalMoves) {
   // Red Advisor at palace center (1, 4) — can reach 4 corners.
   const XqGame game = MakeGame({{{1, 4}, kRA}, {{0, 4}, kRG}, {{9, 3}, kBG}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(1, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(1, 4));
   EXPECT_TRUE(HasMove(moves, Idx(1, 4), Idx(0, 3)));
   EXPECT_TRUE(HasMove(moves, Idx(1, 4), Idx(0, 5)));
   EXPECT_TRUE(HasMove(moves, Idx(1, 4), Idx(2, 3)));
@@ -210,7 +211,7 @@ TEST(GameAction, FR_ADV_PALACE_AdvisorCannotLeavePalace) {
   // Advisor at corner (0, 3): only diagonal target is (1, 4).
   const XqGame game = MakeGame({{{0, 3}, kRA}, {{0, 4}, kRG}, {{9, 3}, kBG}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(0, 3));
+  const auto moves = MovesFrom(ValidActions(game), Idx(0, 3));
   EXPECT_TRUE(HasMove(moves, Idx(0, 3), Idx(1, 4)));
   EXPECT_EQ(moves.size(), 1u);
 }
@@ -221,7 +222,7 @@ TEST(GameAction, FR_ELE_DIAG_2_ElephantTwoStepDiagonal) {
   const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG},
                                 {{2, 4}, kRE}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(2, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(2, 4));
   EXPECT_TRUE(HasMove(moves, Idx(2, 4), Idx(0, 2)));
   EXPECT_TRUE(HasMove(moves, Idx(2, 4), Idx(0, 6)));
   EXPECT_TRUE(HasMove(moves, Idx(2, 4), Idx(4, 2)));
@@ -234,7 +235,7 @@ TEST(GameAction, FR_ELE_NO_RIVER_RedElephantStaysBelowFive) {
   const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG},
                                 {{4, 4}, kRE}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   for (const XqA& a : moves) {
     const uint8_t to_r = a.to / kBoardCols;
     EXPECT_LE(to_r, 4u)
@@ -251,7 +252,7 @@ TEST(GameAction, FR_ELE_EYE_BLOCKED_ElephantBlockedByMidpoint) {
   // (where eye is empty) are still allowed.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 6}, kRE}, {{1, 5}, kRH}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(0, 6));
+  const auto moves = MovesFrom(ValidActions(game), Idx(0, 6));
   EXPECT_FALSE(HasMove(moves, Idx(0, 6), Idx(2, 4)));
   // (2, 8) is a legitimate target if (1, 7) is empty.
   EXPECT_TRUE(HasMove(moves, Idx(0, 6), Idx(2, 8)));
@@ -264,7 +265,7 @@ TEST(GameAction, FR_HORSE_L_HorseFullEightTargets) {
   const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG},
                                 {{4, 4}, kRH}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(6, 5)));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(6, 3)));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(2, 5)));
@@ -282,7 +283,7 @@ TEST(GameAction, FR_HORSE_LEG_BLOCKED_HorseHobbled) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kRH}, {{5, 4}, kRP}},
       kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_FALSE(HasMove(moves, Idx(4, 4), Idx(6, 5)));
   EXPECT_FALSE(HasMove(moves, Idx(4, 4), Idx(6, 3)));
   // Other legs still free.
@@ -298,7 +299,7 @@ TEST(GameAction, FR_CHAR_LINE_ChariotSlidesAlongFile) {
   const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG},
                                 {{4, 0}, kRC}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   // Chariot on (4, 0): file moves to rows {0, 1, 2, 3, 5, 6, 7, 8, 9}
   // (excluding (4, 0) itself and (0, 4)/(9, 4) on col 4).
   // But also rank moves to cols {1..8}.
@@ -316,7 +317,7 @@ TEST(GameAction, FR_CHAR_NO_JUMP_ChariotStopsAtFirstPiece) {
   // (4, 1)..(4, 3) but not (4, 4) or beyond.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 0}, kBG}, {{4, 0}, kRC}, {{4, 4}, kRP}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   for (uint8_t c = 1; c <= 3; ++c) {
     EXPECT_TRUE(HasMove(moves, Idx(4, 0), Idx(4, c)));
   }
@@ -328,7 +329,7 @@ TEST(GameAction, FR_CHAR_CAPTURE_ChariotCapturesEnemy) {
   // Enemy at (4, 5). Chariot can reach (4, 1)..(4, 5).
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 0}, kBG}, {{4, 0}, kRC}, {{4, 5}, kBS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   EXPECT_TRUE(HasMove(moves, Idx(4, 0), Idx(4, 5)));
   EXPECT_FALSE(HasMove(moves, Idx(4, 0), Idx(4, 6)));
 }
@@ -336,7 +337,7 @@ TEST(GameAction, FR_CHAR_CAPTURE_ChariotCapturesEnemy) {
 TEST(GameAction, FR_CAPTURE_NO_FRIEND_ChariotCannotCaptureFriend) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 0}, kBG}, {{4, 0}, kRC}, {{4, 5}, kRS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   EXPECT_FALSE(HasMove(moves, Idx(4, 0), Idx(4, 5)));
 }
 
@@ -345,7 +346,7 @@ TEST(GameAction, FR_CAPTURE_NO_FRIEND_ChariotCannotCaptureFriend) {
 TEST(GameAction, FR_CANNON_MOVE_NoCaptureBehavesLikeChariot) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 0}, kBG}, {{4, 0}, kRP}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   // No screens => no captures, but still free movement along open
   // ranks/files.
   for (uint8_t c = 1; c < kBoardCols; ++c) {
@@ -357,7 +358,7 @@ TEST(GameAction, FR_CANNON_NEED_SCREEN_NoCaptureWithoutScreen) {
   // Cannon at (4, 0), enemy at (4, 5), no screen between.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 0}, kRP}, {{4, 5}, kBS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   // Cannon can move to (4, 1)..(4, 4) (empty cells), but capture at
   // (4, 5) needs a screen.
   EXPECT_TRUE(HasMove(moves, Idx(4, 0), Idx(4, 4)));
@@ -372,7 +373,7 @@ TEST(GameAction, FR_CANNON_ONE_SCREEN_CaptureWithExactlyOneScreen) {
                                 {{4, 2}, kRS},
                                 {{4, 5}, kBS}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   EXPECT_TRUE(HasMove(moves, Idx(4, 0), Idx(4, 5)));
   // Cannot capture beyond first enemy.
   EXPECT_FALSE(HasMove(moves, Idx(4, 0), Idx(4, 6)));
@@ -389,7 +390,7 @@ TEST(GameAction, FR_CANNON_ONE_SCREEN_TwoScreensBlockCapture) {
                                 {{4, 3}, kRS},
                                 {{4, 5}, kBS}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   EXPECT_FALSE(HasMove(moves, Idx(4, 0), Idx(4, 5)));
 }
 
@@ -401,7 +402,7 @@ TEST(GameAction, FR_CANNON_TARGET_ENEMY_FriendlyTargetRejected) {
                                 {{4, 2}, kRS},
                                 {{4, 5}, kRS}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   EXPECT_FALSE(HasMove(moves, Idx(4, 0), Idx(4, 5)));
 }
 
@@ -411,7 +412,7 @@ TEST(GameAction, FR_SOLDIER_FORWARD_PRE_RedSoldierBeforeRiver) {
   // Red Soldier at (3, 4), still on Red's side.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{3, 4}, kRS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(3, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(3, 4));
   EXPECT_TRUE(HasMove(moves, Idx(3, 4), Idx(4, 4)));
   EXPECT_EQ(moves.size(), 1u);
 }
@@ -420,7 +421,7 @@ TEST(GameAction, FR_SOLDIER_SIDEWAYS_POST_RedSoldierAfterRiver) {
   // Red Soldier at (5, 4) — across the river.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(5, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(5, 4));
   EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(6, 4)));   // forward
   EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(5, 3)));   // left
   EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(5, 5)));   // right
@@ -430,7 +431,7 @@ TEST(GameAction, FR_SOLDIER_SIDEWAYS_POST_RedSoldierAfterRiver) {
 TEST(GameAction, FR_SOLDIER_NO_BACK_RedSoldierCannotMoveBackward) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(5, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(5, 4));
   EXPECT_FALSE(HasMove(moves, Idx(5, 4), Idx(4, 4)));
 }
 
@@ -438,7 +439,7 @@ TEST(GameAction, FR_SOLDIER_FORWARD_PRE_BlackSoldierBeforeRiver) {
   // Black Soldier at (6, 4) — still on Black's side.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{6, 4}, kBS}}, kBlack);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(6, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(6, 4));
   EXPECT_TRUE(HasMove(moves, Idx(6, 4), Idx(5, 4)));
   EXPECT_EQ(moves.size(), 1u);
 }
@@ -446,7 +447,7 @@ TEST(GameAction, FR_SOLDIER_FORWARD_PRE_BlackSoldierBeforeRiver) {
 TEST(GameAction, FR_SOLDIER_SIDEWAYS_POST_BlackSoldierAfterRiver) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kBS}}, kBlack);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(3, 4)));   // forward
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(4, 3)));   // left
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(4, 5)));   // right
@@ -458,7 +459,7 @@ TEST(GameAction, FR_SOLDIER_NO_PROMOTION_StaysSoldierAtBackRank) {
   // sideways moves (it cannot move forward off the board).
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{8, 0}, kBG}, {{9, 4}, kRS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(9, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(9, 4));
   EXPECT_TRUE(HasMove(moves, Idx(9, 4), Idx(9, 3)));
   EXPECT_TRUE(HasMove(moves, Idx(9, 4), Idx(9, 5)));
   EXPECT_FALSE(HasMove(moves, Idx(9, 4), Idx(8, 4)));  // backward
@@ -469,7 +470,7 @@ TEST(GameAction, FR_SOLDIER_NO_PROMOTION_StaysSoldierAtBackRank) {
 
 TEST(GameAction, ApplyMutatesBoardForFromAndToCells) {
   XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   ASSERT_FALSE(actions.empty());
   const XqA a = actions.front();
   game.ApplyActionInPlace(a);
@@ -484,7 +485,7 @@ TEST(GameAction, FR_MCTS_APPLY_UNDO_SingleStepRestoresState) {
   const XqB before_board = game.GetBoard();
   const uint32_t before_round = game.CurrentRound();
   const XqP before_player = game.CurrentPlayer();
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   ASSERT_FALSE(actions.empty());
   game.ApplyActionInPlace(actions.front());
   game.UndoLastAction();
@@ -504,7 +505,7 @@ TEST(GameAction, FR_MCTS_DEEP_ROLLOUT_DeepUndoRestoresState) {
   std::vector<XqA> applied;
   // Roll out 50 plies with the first valid action at each step.
   for (int i = 0; i < 50; ++i) {
-    const std::vector<XqA> actions = game.ValidActions();
+    const std::vector<XqA> actions = ValidActions(game);
     if (actions.empty()) break;
     applied.push_back(actions.front());
     game.ApplyActionInPlace(actions.front());
@@ -530,7 +531,7 @@ TEST(GameAction, FR_MCTS_DEEP_ROLLOUT_FullCapacityRoundTrip) {
   applied.reserve(*XqGame::kMaxRounds);
   while (applied.size() < *XqGame::kMaxRounds) {
     if (game.IsOver()) break;
-    const std::vector<XqA> actions = game.ValidActions();
+    const std::vector<XqA> actions = ValidActions(game);
     if (actions.empty()) break;
     applied.push_back(actions.front());
     game.ApplyActionInPlace(actions.front());
@@ -549,7 +550,7 @@ TEST(GameAction, FR_CAPTURE_REMOVE_CapturedPieceRestoredOnUndo) {
   XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 0}, kRC}, {{4, 5}, kBS}}, kRed);
   const XqA capture{Idx(4, 0), Idx(4, 5)};
-  ASSERT_TRUE(HasMove(game.ValidActions(), capture.from, capture.to));
+  ASSERT_TRUE(HasMove(ValidActions(game), capture.from, capture.to));
 
   game.ApplyActionInPlace(capture);
   EXPECT_EQ(game.GetBoard()[Idx(4, 5)], kRC)
@@ -567,7 +568,7 @@ TEST(GameAction, FR_GEN_CAPTURE_GeneralCapturesAdjacentEnemy) {
   // General captures it.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 5}, kBC}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(0, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(0, 4));
   EXPECT_TRUE(HasMove(moves, Idx(0, 4), Idx(0, 5)));
 
   XqGame mut = game;
@@ -582,7 +583,7 @@ TEST(GameAction, FR_ELE_CAPTURE_ElephantCapturesEnemyAtDiagonalTwo) {
                                 {{2, 4}, kRE},
                                 {{4, 6}, kBS}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(2, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(2, 4));
   EXPECT_TRUE(HasMove(moves, Idx(2, 4), Idx(4, 6)));
   XqGame mut = game;
   mut.ApplyActionInPlace(XqA{Idx(2, 4), Idx(4, 6)});
@@ -596,7 +597,7 @@ TEST(GameAction, FR_HORSE_CAPTURE_HorseCapturesEnemyAtLDestination) {
                                 {{4, 4}, kRH},
                                 {{6, 5}, kBS}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(6, 5)));
   XqGame mut = game;
   mut.ApplyActionInPlace(XqA{Idx(4, 4), Idx(6, 5)});
@@ -607,7 +608,7 @@ TEST(GameAction, FR_HORSE_CAPTURE_HorseCapturesEnemyAtLDestination) {
 TEST(GameAction, FR_SOLDIER_NO_DIAG_PreRiverNoDiagonalMoves) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{3, 4}, kRS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(3, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(3, 4));
   EXPECT_FALSE(HasMove(moves, Idx(3, 4), Idx(4, 3)));
   EXPECT_FALSE(HasMove(moves, Idx(3, 4), Idx(4, 5)));
 }
@@ -615,7 +616,7 @@ TEST(GameAction, FR_SOLDIER_NO_DIAG_PreRiverNoDiagonalMoves) {
 TEST(GameAction, FR_SOLDIER_NO_DIAG_PostRiverNoDiagonalMoves) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(5, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(5, 4));
   EXPECT_FALSE(HasMove(moves, Idx(5, 4), Idx(6, 3)));
   EXPECT_FALSE(HasMove(moves, Idx(5, 4), Idx(6, 5)));
 }
@@ -626,7 +627,7 @@ TEST(GameAction, FR_SOLDIER_CAPTURE_SoldierCapturesEnemyForward) {
                                 {{4, 4}, kRS},
                                 {{5, 4}, kBS}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(5, 4)));
   XqGame mut = game;
   mut.ApplyActionInPlace(XqA{Idx(4, 4), Idx(5, 4)});
@@ -641,7 +642,7 @@ TEST(GameAction, FR_CHECK_DETECTED_AttackedGeneralForcesEscape) {
   // attacked; (1, 4) is still on col 4 and remains in check.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 0}, kBG}, {{5, 4}, kBC}}, kRed);
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   for (const XqA& a : actions) {
     const uint8_t to_col = a.to % kBoardCols;
     EXPECT_NE(to_col, 4u)
@@ -671,7 +672,7 @@ TEST(GameAction, FR_MOVE_NO_SELF_CHECK_RejectsMovesLeavingOwnGeneralAttacked) {
   // Chariot must not be allowed to leave col 4.
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{8, 0}, kBG}, {{1, 4}, kRC}, {{9, 4}, kBC}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(1, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(1, 4));
   for (const XqA& a : moves) {
     EXPECT_EQ(a.to % kBoardCols, 4u)
         << "Pinned piece must not leave col 4 (would expose own General).";
@@ -682,7 +683,7 @@ TEST(GameAction, FR_MOVE_NO_SELF_CHECK_RejectsMovesLeavingOwnGeneralAttacked) {
 
 TEST(GameAction, BlackGeneralOrthogonalMovesInsidePalace) {
   const XqGame game = MakeGame({{{0, 0}, kRG}, {{8, 4}, kBG}}, kBlack);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(8, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(8, 4));
   EXPECT_TRUE(HasMove(moves, Idx(8, 4), Idx(7, 4)));
   EXPECT_TRUE(HasMove(moves, Idx(8, 4), Idx(9, 4)));
   EXPECT_TRUE(HasMove(moves, Idx(8, 4), Idx(8, 3)));
@@ -693,7 +694,7 @@ TEST(GameAction, BlackGeneralOrthogonalMovesInsidePalace) {
 TEST(GameAction, BlackAdvisorReachesPalaceCenter) {
   const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 4}, kBG}, {{9, 3}, kBA}},
                                kBlack);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(9, 3));
+  const auto moves = MovesFrom(ValidActions(game), Idx(9, 3));
   EXPECT_TRUE(HasMove(moves, Idx(9, 3), Idx(8, 4)));
   EXPECT_EQ(moves.size(), 1u);
 }
@@ -701,7 +702,7 @@ TEST(GameAction, BlackAdvisorReachesPalaceCenter) {
 TEST(GameAction, BlackElephantStaysOnOwnSide) {
   const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kBE}},
                                kBlack);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(5, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(5, 4));
   for (const XqA& a : moves) {
     const uint8_t to_r = a.to / kBoardCols;
     EXPECT_GE(to_r, 5u) << "Black Elephant must stay on rows 5-9.";
@@ -712,7 +713,7 @@ TEST(GameAction, ElephantBlockedByEnemyInEye) {
   // Eye blocked by an ENEMY piece (not just friendly).
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 6}, kRE}, {{1, 5}, kBS}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(0, 6));
+  const auto moves = MovesFrom(ValidActions(game), Idx(0, 6));
   EXPECT_FALSE(HasMove(moves, Idx(0, 6), Idx(2, 4)));
 }
 
@@ -728,7 +729,7 @@ TEST(GameAction, HorseHobbledInAllFourLegDirections) {
                                 {{4, 3}, kRS},
                                 {{4, 5}, kRS}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(4, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_EQ(moves.size(), 0u)
       << "Horse with all four legs blocked has zero L-moves.";
 }
@@ -736,7 +737,7 @@ TEST(GameAction, HorseHobbledInAllFourLegDirections) {
 TEST(GameAction, HorseAtBoardCornerHasOnlyTwoMoves) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 0}, kRH}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(0, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(0, 0));
   EXPECT_TRUE(HasMove(moves, Idx(0, 0), Idx(1, 2)));
   EXPECT_TRUE(HasMove(moves, Idx(0, 0), Idx(2, 1)));
   EXPECT_EQ(moves.size(), 2u);
@@ -745,7 +746,7 @@ TEST(GameAction, HorseAtBoardCornerHasOnlyTwoMoves) {
 TEST(GameAction, ChariotAtBoardCornerSweepsTwoLines) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 0}, kRC}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(0, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(0, 0));
   // Should reach (0, 1)..(0, 8) except (0, 4) where Red General sits.
   for (uint8_t c = 1; c <= 3; ++c) {
     EXPECT_TRUE(HasMove(moves, Idx(0, 0), Idx(0, c)));
@@ -769,14 +770,14 @@ TEST(GameAction, CannonCanShootAcrossManyEmptyCells) {
                                 {{5, 0}, kRS},
                                 {{9, 0}, kBS}},
                                kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(0, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(0, 0));
   EXPECT_TRUE(HasMove(moves, Idx(0, 0), Idx(9, 0)));
 }
 
 TEST(GameAction, BlackSoldierForwardIsNegativeRowDelta) {
   const XqGame game = MakeGame(
       {{{0, 4}, kRG}, {{9, 3}, kBG}, {{6, 0}, kBS}}, kBlack);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(6, 0));
+  const auto moves = MovesFrom(ValidActions(game), Idx(6, 0));
   EXPECT_TRUE(HasMove(moves, Idx(6, 0), Idx(5, 0)));
   EXPECT_FALSE(HasMove(moves, Idx(6, 0), Idx(7, 0)))
       << "Black Soldier never moves toward higher rows.";
@@ -824,7 +825,7 @@ TEST(GameAction, ApplyAndUndoPreservePositionHashViaIsOverConsistency) {
   // a fake threefold repetition after undo.
   XqGame game;
   for (int i = 0; i < 5; ++i) {
-    const auto actions = game.ValidActions();
+    const auto actions = ValidActions(game);
     if (actions.empty()) break;
     game.ApplyActionInPlace(actions.front());
     EXPECT_FALSE(game.IsOver());
@@ -839,14 +840,14 @@ TEST(GameAction, SnapshotConstructorPreservesPositionHashViaIsOver) {
   const XqGame fresh;
   const XqGame snap(fresh.GetBoard(), fresh.CurrentPlayer(), 0, std::nullopt);
   EXPECT_EQ(snap.IsOver(), fresh.IsOver());
-  EXPECT_EQ(snap.ValidActions().size(), fresh.ValidActions().size());
+  EXPECT_EQ(ValidActions(snap).size(), ValidActions(fresh).size());
 }
 
 TEST(GameAction, EveryValidActionAppliedAndUndoneRestoresState) {
   // For the initial position, apply each valid action then undo it
   // and verify the board is restored.
   XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   ASSERT_FALSE(actions.empty());
   const XqB initial_board = game.GetBoard();
   for (const XqA& a : actions) {
@@ -869,7 +870,7 @@ TEST(GameAction, CheckEscapableByCapturingTheChecker) {
                                 {{3, 5}, kRC},
                                 {{3, 4}, kBC}},
                                kRed);
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   EXPECT_TRUE(HasMove(actions, Idx(3, 5), Idx(3, 4)))
       << "Capturing the checker is a legal way to escape check.";
 }
@@ -886,7 +887,7 @@ TEST(GameAction, MoveExposingDiscoveredSelfCheckIsRejected) {
                                 {{3, 4}, kRP},
                                 {{5, 4}, kBC}},
                                kRed);
-  const std::vector<XqA> moves = MovesFrom(game.ValidActions(), Idx(3, 4));
+  const std::vector<XqA> moves = MovesFrom(ValidActions(game), Idx(3, 4));
   for (const XqA& a : moves) {
     EXPECT_EQ(a.to % kBoardCols, 4u)
         << "Cannon must stay on col 4 to keep blocking the Chariot.";
@@ -924,7 +925,7 @@ TEST(GameAction, GeneralCannotCaptureProtectedAdjacentEnemy) {
   // would put the General in check from the Chariot.
   const XqGame game = MakeGame(
       {{{1, 4}, kRG}, {{9, 3}, kBG}, {{1, 5}, kBS}, {{5, 5}, kBC}}, kRed);
-  const auto moves = MovesFrom(game.ValidActions(), Idx(1, 4));
+  const auto moves = MovesFrom(ValidActions(game), Idx(1, 4));
   EXPECT_FALSE(HasMove(moves, Idx(1, 4), Idx(1, 5)))
       << "General cannot capture into a square defended by an enemy "
          "Chariot — it would still be in check.";

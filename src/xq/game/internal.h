@@ -2,8 +2,9 @@
 #define ALPHA_ZERO_GAME_XIANG_QI_SRC_XQ_GAME_INTERNAL_H_
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <span>
 
 #include "include/xq/game.h"
 
@@ -122,31 +123,35 @@ constexpr int ZobristPieceIndex(int8_t code) noexcept {
 [[nodiscard]] uint64_t HashBoard(const XqB& board, XqP current_player) noexcept;
 
 // ============================================================================
-// Move generation primitives. Each function pushes pseudo-legal
-// moves (not yet filtered for self-check / Flying General) into `out`.
-// `from` must hold a piece of the appropriate type and color.
+// Move generation primitives. Each function appends pseudo-legal
+// moves (not yet filtered for self-check / Flying General) to
+// `out[count]` and increments `count`. `from` must hold a piece of
+// the appropriate type and color. `out` is sized to at least the
+// remaining capacity (typically `XqGame::kMaxLegalActions`); these
+// helpers do not bounds-check.
 // ============================================================================
 
 void EmitGeneralMoves(const XqB& board, uint8_t from, XqP player,
-                      std::vector<XqA>& out) noexcept;
+                      std::span<XqA> out, std::size_t& count) noexcept;
 void EmitAdvisorMoves(const XqB& board, uint8_t from, XqP player,
-                      std::vector<XqA>& out) noexcept;
+                      std::span<XqA> out, std::size_t& count) noexcept;
 void EmitElephantMoves(const XqB& board, uint8_t from, XqP player,
-                       std::vector<XqA>& out) noexcept;
+                       std::span<XqA> out, std::size_t& count) noexcept;
 void EmitHorseMoves(const XqB& board, uint8_t from, XqP player,
-                    std::vector<XqA>& out) noexcept;
+                    std::span<XqA> out, std::size_t& count) noexcept;
 void EmitChariotMoves(const XqB& board, uint8_t from, XqP player,
-                      std::vector<XqA>& out) noexcept;
+                      std::span<XqA> out, std::size_t& count) noexcept;
 void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
-                     std::vector<XqA>& out) noexcept;
+                     std::span<XqA> out, std::size_t& count) noexcept;
 void EmitSoldierMoves(const XqB& board, uint8_t from, XqP player,
-                      std::vector<XqA>& out) noexcept;
+                      std::span<XqA> out, std::size_t& count) noexcept;
 
 // Generate pseudo-legal moves for every piece belonging to `player`.
-// Pseudo-legal = follows piece movement rules; does NOT yet check
-// self-check or Flying General.
+// Resets `count` to 0, then writes the generated moves to
+// `out[0..count)`. Pseudo-legal = follows piece movement rules; does
+// NOT yet check self-check or Flying General.
 void EmitPseudoLegalMoves(const XqB& board, XqP player,
-                          std::vector<XqA>& out) noexcept;
+                          std::span<XqA> out, std::size_t& count) noexcept;
 
 // ============================================================================
 // Position predicates.

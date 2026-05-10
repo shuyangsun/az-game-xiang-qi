@@ -4,6 +4,7 @@
 #include "gtest/gtest.h"
 #include "include/xq/augmentation.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 
 namespace az::game::xq::internal {
 namespace {
@@ -44,9 +45,9 @@ TEST(Augmentation, FR_AUG_PRESERVES_ACTION_COUNT_MirrorPreservesValidActions) {
   const XqGame game;
   const std::vector<XqGame> aug = AugmentAll(game);
   ASSERT_EQ(aug.size(), kNumAugmentations);
-  const std::size_t expected = game.ValidActions().size();
+  const std::size_t expected = ValidActions(game).size();
   for (const XqGame& v : aug) {
-    EXPECT_EQ(v.ValidActions().size(), expected);
+    EXPECT_EQ(ValidActions(v).size(), expected);
   }
 }
 
@@ -88,8 +89,8 @@ TEST(Augmentation, FR_AUG_VARIANT_IS_GAME_AllVariantsRoundtripValidActions) {
   const std::vector<XqGame> aug = AugmentAll(game);
   for (const XqGame& v : aug) {
     // Each variant must be queryable as a Game (no crash, valid output).
-    const std::vector<XqA> actions = v.ValidActions();
-    EXPECT_EQ(actions.size(), v.ValidActions().size())
+    const std::vector<XqA> actions = ValidActions(v);
+    EXPECT_EQ(actions.size(), ValidActions(v).size())
         << "Variant ValidActions() must be deterministic.";
   }
 }

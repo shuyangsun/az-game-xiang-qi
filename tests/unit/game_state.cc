@@ -3,6 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 
 namespace az::game::xq {
 namespace {
@@ -80,7 +81,7 @@ TEST(GameState, FR_MAX_ROUNDS_DRAW_BeforeCapNotOver) {
 
 TEST(GameState, FR_TERM_EMPTY_VALID_AlignedAtStart) {
   const XqGame game;
-  EXPECT_EQ(game.ValidActions().empty(), game.IsOver());
+  EXPECT_EQ(ValidActions(game).empty(), game.IsOver());
 }
 
 // Helpers shared across termination tests.
@@ -115,7 +116,7 @@ TEST(GameState, FR_CHECKMATE_LOSS_BackRankMate) {
       << "A checkmate position must terminate the game.";
   EXPECT_FLOAT_EQ(game.GetScore(kRed), -1.0F);
   EXPECT_FLOAT_EQ(game.GetScore(kBlack), 1.0F);
-  EXPECT_TRUE(game.ValidActions().empty());
+  EXPECT_TRUE(ValidActions(game).empty());
 }
 
 TEST(GameState, FR_STALEMATE_LOSS_NoLegalMovesNotInCheck) {
@@ -145,7 +146,7 @@ TEST(GameState, FR_REPETITION_DRAW_ThreefoldFromInitialPosition) {
   // position_history_; simply playing the same move four times
   // alternated by both players reaches threefold.
   XqGame game;
-  if (game.ValidActions().empty()) {
+  if (ValidActions(game).empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
   }
@@ -153,16 +154,16 @@ TEST(GameState, FR_REPETITION_DRAW_ThreefoldFromInitialPosition) {
   // Find a Red move that has a clean inverse from Black: classic horse
   // shuffle. We let the implementation pick its own canonical opening
   // and verify that repeating a forward+back pair reaches threefold.
-  XqA red_first = game.ValidActions().front();
+  XqA red_first = ValidActions(game).front();
   game.ApplyActionInPlace(red_first);
-  XqA black_first = game.ValidActions().front();
+  XqA black_first = ValidActions(game).front();
   game.ApplyActionInPlace(black_first);
   // Now repeat: the simplest case is the implementation supplies an
   // "undo" move; if not, the test must skip until the rules layer
   // is real.
-  XqA red_back = game.ValidActions().front();
+  XqA red_back = ValidActions(game).front();
   game.ApplyActionInPlace(red_back);
-  XqA black_back = game.ValidActions().front();
+  XqA black_back = ValidActions(game).front();
   game.ApplyActionInPlace(black_back);
 
   // We've played 4 plies; if an idempotent shuffle exists the
@@ -193,11 +194,11 @@ TEST(GameState, FR_REPETITION_UNDO_RestoresNonTerminalState) {
   // history), then undo and verify IsOver() returns false on the
   // restored state.
   XqGame game;
-  if (game.ValidActions().empty()) {
+  if (ValidActions(game).empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
   }
-  game.ApplyActionInPlace(game.ValidActions().front());
+  game.ApplyActionInPlace(ValidActions(game).front());
   game.UndoLastAction();
   EXPECT_FALSE(game.IsOver());
 }

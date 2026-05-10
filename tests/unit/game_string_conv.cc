@@ -5,6 +5,7 @@
 
 #include "gtest/gtest.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 
 namespace az::game::xq {
 namespace {
@@ -21,7 +22,7 @@ TEST(GameStringConv, FR_API_BOARD_STR_NONEMPTY_InitialBoardNonEmpty) {
 TEST(GameStringConv, FR_API_BOARD_STR_NONEMPTY_DistinctAcrossPositions) {
   const XqGame initial;
   XqGame moved = initial;
-  const std::vector<XqA> actions = moved.ValidActions();
+  const std::vector<XqA> actions = ValidActions(moved);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -61,7 +62,7 @@ TEST(GameStringConv, FR_API_ACTION_ROUNDTRIP_FromKnownExample) {
 
 TEST(GameStringConv, FR_API_ACTION_ROUNDTRIP_AllValidInitialMoves) {
   const XqGame game;
-  for (const XqA& a : game.ValidActions()) {
+  for (const XqA& a : ValidActions(game)) {
     const std::string s = game.ActionToString(a);
     const auto parsed = game.ActionFromString(s);
     ASSERT_TRUE(parsed.has_value()) << "Failed to parse: " << s;

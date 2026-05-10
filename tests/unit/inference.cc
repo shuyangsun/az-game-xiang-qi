@@ -7,6 +7,7 @@
 #include "gtest/gtest.h"
 #include "include/xq/augmentation.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 #include "include/xq/inference.h"
 
 namespace az::game::xq {
@@ -38,7 +39,7 @@ TEST(InferenceAugmenter, FR_INF_INTERPRET_LEN_MatchesOriginalActions) {
   const XqGame game;
   const XqInferenceAugmenter inf;
   const std::vector<XqGame> aug = inf.Augment(game);
-  const std::size_t orig_actions = game.ValidActions().size();
+  const std::size_t orig_actions = ValidActions(game).size();
   if (orig_actions == 0) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -47,7 +48,7 @@ TEST(InferenceAugmenter, FR_INF_INTERPRET_LEN_MatchesOriginalActions) {
   std::vector<Evaluation> evals;
   evals.reserve(aug.size());
   for (const XqGame& v : aug) {
-    const std::size_t n = v.ValidActions().size();
+    const std::size_t n = ValidActions(v).size();
     std::vector<float> probs(n,
                              1.0F / static_cast<float>(n == 0 ? 1 : n));
     evals.push_back(Evaluation{0.0F, std::move(probs)});
@@ -62,7 +63,7 @@ TEST(InferenceAugmenter, FR_INF_INTERPRET_VALUE_AveragesIdenticalValues) {
   const XqGame game;
   const XqInferenceAugmenter inf;
   const std::vector<XqGame> aug = inf.Augment(game);
-  const std::size_t n = game.ValidActions().size();
+  const std::size_t n = ValidActions(game).size();
   if (n == 0) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -71,7 +72,7 @@ TEST(InferenceAugmenter, FR_INF_INTERPRET_VALUE_AveragesIdenticalValues) {
   std::vector<Evaluation> evals;
   evals.reserve(aug.size());
   for (const XqGame& v : aug) {
-    const std::size_t na = v.ValidActions().size();
+    const std::size_t na = ValidActions(v).size();
     std::vector<float> probs(na, 1.0F / static_cast<float>(na));
     evals.push_back(Evaluation{0.7F, std::move(probs)});
   }
@@ -87,7 +88,7 @@ TEST(InferenceAugmenter,
   const XqGame game;
   const XqInferenceAugmenter inf;
   const std::vector<XqGame> aug = inf.Augment(game);
-  const std::size_t n = game.ValidActions().size();
+  const std::size_t n = ValidActions(game).size();
   if (n == 0) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -96,7 +97,7 @@ TEST(InferenceAugmenter,
   std::vector<Evaluation> evals;
   evals.reserve(aug.size());
   for (const XqGame& v : aug) {
-    const std::size_t na = v.ValidActions().size();
+    const std::size_t na = ValidActions(v).size();
     std::vector<float> probs(na, 1.0F / static_cast<float>(na));
     evals.push_back(Evaluation{0.0F, std::move(probs)});
   }
@@ -114,11 +115,11 @@ TEST(InferenceAugmenter,
 TEST(InferenceAugmenter, FR_INF_INTERPRET_ALIGN_OriginalActionOrdering) {
   // Build an evaluation that gives non-uniform probability to one
   // specific original-frame action across every variant. Verify the
-  // returned distribution aligns with original.ValidActions().
+  // returned distribution aligns with ValidActions(original).
   const XqGame game;
   const XqInferenceAugmenter inf;
   const std::vector<XqGame> aug = inf.Augment(game);
-  const std::vector<XqA> orig_actions = game.ValidActions();
+  const std::vector<XqA> orig_actions = ValidActions(game);
   if (orig_actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -127,7 +128,7 @@ TEST(InferenceAugmenter, FR_INF_INTERPRET_ALIGN_OriginalActionOrdering) {
   std::vector<Evaluation> evals;
   evals.reserve(aug.size());
   for (const XqGame& v : aug) {
-    const std::size_t na = v.ValidActions().size();
+    const std::size_t na = ValidActions(v).size();
     std::vector<float> probs(na, 0.0F);
     if (na > 0) probs[0] = 1.0F;
     evals.push_back(Evaluation{0.0F, std::move(probs)});

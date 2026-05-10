@@ -65,11 +65,12 @@ class XqSerializer : public ::az::game::api::IGameSerializer<XqGame>,
    * scattered via `game.PolicyIndex(action)`.
    *
    * The returned vector MUST be of fixed length across all reachable game
-   * states. Probability mass for actions not in `game.ValidActions()`
+   * states. Probability mass for actions not in `game.ValidActionsInto(...)`
    * should be zero so the network learns the valid-action mask
    * implicitly.
    *
-   * `target.pi[i]` corresponds to `game.ValidActions()[i]`. The
+   * `target.pi[i]` corresponds to the i-th entry written by
+   * `game.ValidActionsInto(buf)` into the caller-owned buffer. The
    * implementation is responsible for scattering those values into the
    * fixed-size policy slot via `game.PolicyIndex(action)`.
    *

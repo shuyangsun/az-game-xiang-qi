@@ -168,9 +168,10 @@ void PrintAugmentationDebug(std::ostream& os, const XqGame& game,
                             std::span<const XqA> actions) {
   const std::vector<XqGame> augmented = inference.Augment(game);
   os << "[debug] inference variants:   " << augmented.size() << "\n";
+  std::array<XqA, XqGame::kMaxLegalActions> aug_actions{};
   for (std::size_t i = 0; i < augmented.size(); ++i) {
-    const std::vector<XqA> aug_actions = augmented[i].ValidActions();
-    os << "[debug]   key=" << i << " actions=" << aug_actions.size() << "\n";
+    const std::size_t aug_count = augmented[i].ValidActionsInto(aug_actions);
+    os << "[debug]   key=" << i << " actions=" << aug_count << "\n";
   }
 
   std::vector<float> probs(actions.size(), 0.0F);
@@ -249,8 +250,11 @@ int main() {
       return 0;
     }
 
-    const std::vector<XqA> valid_actions = game.ValidActions();
-    std::cout << "\nValid actions: " << valid_actions.size()
+    std::array<XqA, XqGame::kMaxLegalActions> valid_actions_buf{};
+    const std::size_t valid_count = game.ValidActionsInto(valid_actions_buf);
+    const std::span<const XqA> valid_actions(valid_actions_buf.data(),
+                                             valid_count);
+    std::cout << "\nValid actions: " << valid_count
               << " (type \"actions\" to list)\n";
 
     PrintSerializationDebug(std::cout, game, serializer, deserializer, history,

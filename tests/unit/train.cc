@@ -7,6 +7,7 @@
 #include "gtest/gtest.h"
 #include "include/xq/augmentation.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 #include "include/xq/train.h"
 
 namespace az::game::xq {
@@ -23,7 +24,7 @@ bool ApproxEqual(float a, float b) noexcept {
 }
 
 TrainingTarget UniformTarget(const XqGame& game, float z) {
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   std::vector<float> pi(actions.size(),
                         actions.empty()
                             ? 0.0F
@@ -53,7 +54,7 @@ TEST(TrainingAugmenter, FR_TRAIN_AUG_Z_PRESERVED_AcrossEveryPair) {
 TEST(TrainingAugmenter,
      FR_TRAIN_AUG_PI_PERMUTED_AlignsWithAugmentedValidActions) {
   const XqGame game;
-  const std::vector<XqA> orig_actions = game.ValidActions();
+  const std::vector<XqA> orig_actions = ValidActions(game);
   if (orig_actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -75,7 +76,7 @@ TEST(TrainingAugmenter,
   const auto pairs = trainer.Augment(game, target);
   for (const auto& [aug_game, aug_target] : pairs) {
     // pi length must match the augmented variant's ValidActions count.
-    EXPECT_EQ(aug_target.pi.size(), aug_game.ValidActions().size());
+    EXPECT_EQ(aug_target.pi.size(), ValidActions(aug_game).size());
     // Total mass must be preserved (1 in, 1 out modulo float rounding).
     float sum = 0.0F;
     for (float v : aug_target.pi) sum += v;
@@ -89,7 +90,7 @@ TEST(TrainingAugmenter, IdentityVariantPiUnchanged) {
   // The identity-augmented (game, target) pair must have the SAME pi
   // as the input — proving pi is at least preserved through identity.
   const XqGame game;
-  const std::vector<XqA> orig_actions = game.ValidActions();
+  const std::vector<XqA> orig_actions = ValidActions(game);
   if (orig_actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";

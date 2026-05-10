@@ -31,7 +31,7 @@ class XqTrainingAugmenter : public ::az::game::api::ITrainingAugmenter<XqGame> {
    *
    * Each returned pair contains a XqGame variant and
    * a `TrainingTarget` whose `pi[i]` corresponds to that variant's
-   * `ValidActions()[i]`. `target.z` is preserved unchanged.
+   * the i-th entry written by `ValidActionsInto`. `target.z` is preserved unchanged.
    *
    * Convention: result includes the identity (typically the first
    * element); callers should not rely on order.

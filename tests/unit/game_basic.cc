@@ -3,6 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 
 namespace az::game::xq {
 namespace {
@@ -51,7 +52,7 @@ TEST(GameBasic, FR_API_LAST_EMPTY_LastActionNulloptOnFreshGame) {
 
 TEST(GameBasic, FR_API_LAST_AFTER_APPLY_LastPlayerEqualsPriorPlayer) {
   XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -64,7 +65,7 @@ TEST(GameBasic, FR_API_LAST_AFTER_APPLY_LastPlayerEqualsPriorPlayer) {
 
 TEST(GameBasic, FR_API_LAST_AFTER_APPLY_LastActionEqualsAppliedAction) {
   XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -78,7 +79,7 @@ TEST(GameBasic, FR_API_LAST_AFTER_APPLY_LastActionEqualsAppliedAction) {
 
 TEST(GameBasic, FR_TURN_INCREMENT_RoundIncreasesAfterApply) {
   XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -89,7 +90,7 @@ TEST(GameBasic, FR_TURN_INCREMENT_RoundIncreasesAfterApply) {
 
 TEST(GameBasic, FR_TURN_ALTERNATE_PlayerFlipsAfterApply) {
   XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";

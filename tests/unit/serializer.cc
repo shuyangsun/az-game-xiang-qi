@@ -6,6 +6,7 @@
 #include "alpha-zero-api/ring_buffer.h"
 #include "gtest/gtest.h"
 #include "include/xq/game.h"
+#include "tests/unit/valid_actions.h"
 #include "include/xq/serializer.h"
 
 namespace az::game::xq {
@@ -32,7 +33,7 @@ TEST(Serializer, FR_SER_FIXED_LEN_CurrentStateInitial) {
 
 TEST(Serializer, FR_SER_INPUT_LEN_AfterApply) {
   XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -79,7 +80,7 @@ TEST(Serializer, FR_SER_ENCODES_PLAYER_PlanesDifferAcrossPlayers) {
 
 TEST(Serializer, FR_SER_POLICY_LEN_DefaultGame) {
   const XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -94,7 +95,7 @@ TEST(Serializer, FR_SER_POLICY_LEN_DefaultGame) {
 
 TEST(Serializer, FR_SER_POLICY_Z_FIRST_PutsValueInSlotZero) {
   const XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -110,7 +111,7 @@ TEST(Serializer, FR_SER_POLICY_Z_FIRST_PutsValueInSlotZero) {
 
 TEST(Serializer, FR_SER_POLICY_MASK_InvalidActionsZero) {
   const XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -137,7 +138,7 @@ TEST(Serializer, FR_SER_POLICY_MASK_InvalidActionsZero) {
 
 TEST(Serializer, FR_SER_POLICY_MASK_ValidActionsScattered) {
   const XqGame game;
-  const std::vector<XqA> actions = game.ValidActions();
+  const std::vector<XqA> actions = ValidActions(game);
   if (actions.empty()) {
     GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
                     "GAME-ACTION-IMPL is in.";
@@ -239,7 +240,7 @@ TEST(Serializer, ConsistentLengthOnTerminalState) {
 
   for (int i = 0; i < 50; ++i) {
     if (game.IsOver()) break;
-    const std::vector<XqA> actions = game.ValidActions();
+    const std::vector<XqA> actions = ValidActions(game);
     if (actions.empty()) break;
     game.ApplyActionInPlace(actions.front());
     const std::vector<float> mid =

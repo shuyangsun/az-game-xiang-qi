@@ -1,5 +1,6 @@
 #include "include/xq/deserializer.h"
 
+#include <array>
 #include <cstddef>
 #include <span>
 #include <utility>
@@ -21,11 +22,12 @@ XqResult<::az::game::api::Evaluation> XqDeserializer::Deserialize(
     return std::unexpected(XqError::kInvalidPolicyOutputSize);
   }
 
-  const std::vector<XqA> actions = game.ValidActions();
+  std::array<XqA, XqGame::kMaxLegalActions> actions{};
+  const std::size_t count = game.ValidActionsInto(actions);
   std::vector<float> probs;
-  probs.reserve(actions.size());
-  for (const XqA& a : actions) {
-    probs.push_back(output[1 + game.PolicyIndex(a)]);
+  probs.reserve(count);
+  for (std::size_t i = 0; i < count; ++i) {
+    probs.push_back(output[1 + game.PolicyIndex(actions[i])]);
   }
   return ::az::game::api::Evaluation{output.front(), std::move(probs)};
 }

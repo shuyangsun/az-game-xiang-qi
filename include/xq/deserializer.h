@@ -20,7 +20,7 @@ namespace az::game::xq {
  * The deserializer must mirror the layout produced by
  * `XqSerializer::SerializePolicyOutput`. The
  * `Evaluation::probabilities` vector returned must have the same length
- * as `game.ValidActions()`. Implementations typically gather the masked
+ * as `game.ValidActionsInto(...)`. Implementations typically gather the masked
  * subset of policy slots via `game.PolicyIndex(action)`.
  */
 class XqDeserializer
@@ -31,7 +31,7 @@ class XqDeserializer
 
   /**
    * @brief Convert raw neural network output into an `Evaluation`
-   * restricted to `game.ValidActions()`.
+   * restricted to `game.ValidActionsInto(...)`.
    *
    * TODO(TASK-DESERIALIZER-IMPL): document the expected output size, the
    * action -> index mapping (typically via `game.PolicyIndex`), and the

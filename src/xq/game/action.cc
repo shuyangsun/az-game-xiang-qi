@@ -1,6 +1,6 @@
+#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 
 #include "include/xq/game.h"
 #include "src/xq/game/internal.h"
@@ -34,20 +34,22 @@ constexpr int8_t UnpackCaptured(uint8_t packed) noexcept {
 
 }  // namespace
 
-std::vector<XqA> XqGame::ValidActions() const noexcept {
-  if (IsOver()) return {};
+std::size_t XqGame::ValidActionsInto(
+    std::array<XqA, kMaxLegalActions>& out) const noexcept {
+  if (IsOver()) return 0;
 
-  std::vector<XqA> pseudo;
-  EmitPseudoLegalMoves(board_, current_player_, pseudo);
+  // Generate pseudo-legal moves directly into the caller's buffer,
+  // then filter in place for own-king safety and Flying General. The
+  // compaction is safe because the write index never overtakes the
+  // read index.
+  std::size_t pseudo_count = 0;
+  EmitPseudoLegalMoves(board_, current_player_, std::span<XqA>(out),
+                       pseudo_count);
 
-  std::vector<XqA> result;
-  result.reserve(pseudo.size());
-
-  // Filter for own-king safety and Flying General. We do this with a
-  // local mutable copy of the board to avoid touching `*this` (which
-  // is `const` here).
   XqB scratch = board_;
-  for (const XqA& a : pseudo) {
+  std::size_t write = 0;
+  for (std::size_t i = 0; i < pseudo_count; ++i) {
+    const XqA a = out[i];
     const int8_t captured = scratch[a.to];
     const int8_t mover = scratch[a.from];
     scratch[a.to] = mover;
@@ -56,9 +58,9 @@ std::vector<XqA> XqGame::ValidActions() const noexcept {
                        !IsFlyingGenerals(scratch);
     scratch[a.from] = mover;
     scratch[a.to] = captured;
-    if (legal) result.push_back(a);
+    if (legal) out[write++] = a;
   }
-  return result;
+  return write;
 }
 
 std::size_t XqGame::PolicyIndex(const XqA& action) const noexcept {

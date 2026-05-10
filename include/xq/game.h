@@ -8,7 +8,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "alpha-zero-api/game.h"
 
@@ -43,7 +42,7 @@ using XqB = std::array<int8_t, kBoardCells>;
  *
  * Both fields are flat cell indices in `[0, kBoardCells)` (= 0..89).
  * `XqA{kBoardCells, kBoardCells}` is the reserved "no action"
- * sentinel and is never returned by `ValidActions()`.
+ * sentinel and is never returned by `ValidActionsInto()`.
  */
 struct XqA {
   uint8_t from;
@@ -67,7 +66,7 @@ inline constexpr XqP kBlack = true;
  * `XqDeserializer::Deserialize` produce these errors.
  * `ApplyActionInPlace` does not validate its input — the engine is
  * responsible for only ever passing actions returned by
- * `ValidActions()`.
+ * `ValidActionsInto()`.
  */
 enum class XqError : uint8_t {
   kUnknownError = 0,
@@ -131,7 +130,7 @@ class XqGame {
    * `PolicyIndex(a) = a.from * kBoardCells + a.to` is bijective on
    * `[0, kBoardCells^2) = [0, 8100)`. Most slots correspond to
    * physically impossible moves; they are masked out by
-   * `ValidActions()` and stay zero in the policy serializer.
+   * `ValidActionsInto()` and stay zero in the policy serializer.
    */
   static constexpr std::size_t kPolicySize =
       static_cast<std::size_t>(kBoardCells) * kBoardCells;
@@ -242,20 +241,27 @@ class XqGame {
   [[nodiscard]] XqB CanonicalBoard() const noexcept;
 
   /**
-   * @brief All legal moves for the current player in the current
-   * state.
+   * @brief Write all legal moves for the current player into
+   * caller-owned storage and return the count.
    *
-   * The returned vector is deterministic for a given game state:
-   * same vector every call, in the same order. Iteration is
-   * cell-major (cells `0..89`) and within each cell follows the
+   * Writes the legal actions into `out[0 .. count)` and returns
+   * `count`. Entries at indices `>= count` are unspecified and must
+   * be ignored by the caller. The buffer is caller-owned — sized to
+   * `kMaxLegalActions` — and the call is allocation-free, matching
+   * the v0.2.1 `::az::game::api::Game` contract.
+   *
+   * Ordering is deterministic for a given game state: same indices
+   * receive the same actions on every call. Iteration is cell-major
+   * (cells `0..89`) and within each cell follows the
    * piece-type-specific direction order documented in
    * `memory/game_design_details/action_encoding.md`. No duplicates.
    *
-   * Empty if and only if `IsOver()` returns `true`. Xiang Qi has
-   * no "pass" — a side with no legal moves loses (checkmate or
+   * Returns `0` if and only if `IsOver()` returns `true`. Xiang Qi
+   * has no "pass" — a side with no legal moves loses (checkmate or
    * stalemate, both scored as a loss for the side to move).
    */
-  [[nodiscard]] std::vector<XqA> ValidActions() const noexcept;
+  [[nodiscard]] std::size_t ValidActionsInto(
+      std::array<XqA, kMaxLegalActions>& out) const noexcept;
 
   /**
    * @brief Whether the game has reached a terminal state.

@@ -1,5 +1,6 @@
+#include <array>
 #include <cstddef>
-#include <vector>
+#include <span>
 
 #include "include/xq/game.h"
 #include "src/xq/game/internal.h"
@@ -15,13 +16,15 @@ using ::az::game::xq::internal::IsInCheck;
 
 // True iff the side `player` has at least one fully-legal move. We
 // re-implement the legality filter here (rather than calling
-// `XqGame::ValidActions`) so termination logic doesn't allocate a
-// full vector when an early exit is possible.
+// `XqGame::ValidActionsInto`) so termination logic can early-exit on
+// the first legal move it finds, rather than enumerating all of them.
 bool HasAnyLegalMove(const XqB& board, XqP player) noexcept {
-  std::vector<XqA> pseudo;
-  EmitPseudoLegalMoves(board, player, pseudo);
+  std::array<XqA, XqGame::kMaxLegalActions> pseudo{};
+  std::size_t pseudo_count = 0;
+  EmitPseudoLegalMoves(board, player, std::span<XqA>(pseudo), pseudo_count);
   XqB scratch = board;
-  for (const XqA& a : pseudo) {
+  for (std::size_t i = 0; i < pseudo_count; ++i) {
+    const XqA& a = pseudo[i];
     const int8_t captured = scratch[a.to];
     const int8_t mover = scratch[a.from];
     scratch[a.to] = mover;

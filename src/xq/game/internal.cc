@@ -1,8 +1,9 @@
 #include "src/xq/game/internal.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <span>
 
 #include "include/xq/game.h"
 
@@ -45,26 +46,27 @@ constexpr uint64_t MakeZobristBlackKey() noexcept {
 
 // Push (from, to) if the destination is in bounds and not own piece.
 inline void TryPushMove(const XqB& board, uint8_t from, int to_row, int to_col,
-                        XqP player, std::vector<XqA>& out) noexcept {
+                        XqP player, std::span<XqA> out,
+                        std::size_t& count) noexcept {
   if (!InBounds(to_row, to_col)) return;
   const uint8_t to = Idx(static_cast<uint8_t>(to_row),
                          static_cast<uint8_t>(to_col));
   if (IsOwnedBy(board[to], player)) return;
-  out.push_back(XqA{from, to});
+  out[count++] = XqA{from, to};
 }
 
 // As above but with palace constraint.
 inline void TryPushPalaceMove(const XqB& board, uint8_t from, int to_row,
-                              int to_col, XqP player,
-                              std::vector<XqA>& out) noexcept {
+                              int to_col, XqP player, std::span<XqA> out,
+                              std::size_t& count) noexcept {
   if (!InOwnPalace(to_row, to_col, player)) return;
   if (IsOwnedBy(board[Idx(static_cast<uint8_t>(to_row),
                           static_cast<uint8_t>(to_col))],
                 player)) {
     return;
   }
-  out.push_back(XqA{from, Idx(static_cast<uint8_t>(to_row),
-                              static_cast<uint8_t>(to_col))});
+  out[count++] = XqA{from, Idx(static_cast<uint8_t>(to_row),
+                               static_cast<uint8_t>(to_col))};
 }
 
 // ============================================================================
@@ -220,27 +222,27 @@ uint64_t HashBoard(const XqB& board, XqP current_player) noexcept {
 // ============================================================================
 
 void EmitGeneralMoves(const XqB& board, uint8_t from, XqP player,
-                      std::vector<XqA>& out) noexcept {
+                      std::span<XqA> out, std::size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-1, 1, 0, 0};
   static constexpr int kDC[] = {0, 0, -1, 1};
   for (int i = 0; i < 4; ++i) {
-    TryPushPalaceMove(board, from, r + kDR[i], c + kDC[i], player, out);
+    TryPushPalaceMove(board, from, r + kDR[i], c + kDC[i], player, out, count);
   }
 }
 
 void EmitAdvisorMoves(const XqB& board, uint8_t from, XqP player,
-                      std::vector<XqA>& out) noexcept {
+                      std::span<XqA> out, std::size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-1, -1, 1, 1};
   static constexpr int kDC[] = {-1, 1, -1, 1};
   for (int i = 0; i < 4; ++i) {
-    TryPushPalaceMove(board, from, r + kDR[i], c + kDC[i], player, out);
+    TryPushPalaceMove(board, from, r + kDR[i], c + kDC[i], player, out, count);
   }
 }
 
 void EmitElephantMoves(const XqB& board, uint8_t from, XqP player,
-                       std::vector<XqA>& out) noexcept {
+                       std::span<XqA> out, std::size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-2, -2, 2, 2};
   static constexpr int kDC[] = {-2, 2, -2, 2};
@@ -260,13 +262,13 @@ void EmitElephantMoves(const XqB& board, uint8_t from, XqP player,
                   player)) {
       continue;
     }
-    out.push_back(XqA{from, Idx(static_cast<uint8_t>(tr),
-                                static_cast<uint8_t>(tc))});
+    out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
+                                 static_cast<uint8_t>(tc))};
   }
 }
 
 void EmitHorseMoves(const XqB& board, uint8_t from, XqP player,
-                    std::vector<XqA>& out) noexcept {
+                    std::span<XqA> out, std::size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   // 8 L-targets and the orthogonal-leg cell that must be empty.
   struct Move {
@@ -291,13 +293,13 @@ void EmitHorseMoves(const XqB& board, uint8_t from, XqP player,
                   player)) {
       continue;
     }
-    out.push_back(XqA{from, Idx(static_cast<uint8_t>(tr),
-                                static_cast<uint8_t>(tc))});
+    out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
+                                 static_cast<uint8_t>(tc))};
   }
 }
 
 void EmitChariotMoves(const XqB& board, uint8_t from, XqP player,
-                      std::vector<XqA>& out) noexcept {
+                      std::span<XqA> out, std::size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-1, 1, 0, 0};
   static constexpr int kDC[] = {0, 0, -1, 1};
@@ -308,12 +310,12 @@ void EmitChariotMoves(const XqB& board, uint8_t from, XqP player,
       const int8_t code = board[Idx(static_cast<uint8_t>(tr),
                                     static_cast<uint8_t>(tc))];
       if (code == kEmpty) {
-        out.push_back(XqA{from, Idx(static_cast<uint8_t>(tr),
-                                    static_cast<uint8_t>(tc))});
+        out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
+                                     static_cast<uint8_t>(tc))};
       } else {
         if (!IsOwnedBy(code, player)) {
-          out.push_back(XqA{from, Idx(static_cast<uint8_t>(tr),
-                                      static_cast<uint8_t>(tc))});
+          out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
+                                       static_cast<uint8_t>(tc))};
         }
         break;
       }
@@ -324,7 +326,7 @@ void EmitChariotMoves(const XqB& board, uint8_t from, XqP player,
 }
 
 void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
-                     std::vector<XqA>& out) noexcept {
+                     std::span<XqA> out, std::size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-1, 1, 0, 0};
   static constexpr int kDC[] = {0, 0, -1, 1};
@@ -336,8 +338,8 @@ void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
       const int8_t code = board[Idx(static_cast<uint8_t>(tr),
                                     static_cast<uint8_t>(tc))];
       if (code != kEmpty) break;
-      out.push_back(XqA{from, Idx(static_cast<uint8_t>(tr),
-                                  static_cast<uint8_t>(tc))});
+      out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
+                                   static_cast<uint8_t>(tc))};
       tr += kDR[dir];
       tc += kDC[dir];
     }
@@ -350,8 +352,8 @@ void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
                                     static_cast<uint8_t>(tc))];
       if (code != kEmpty) {
         if (!IsOwnedBy(code, player)) {
-          out.push_back(XqA{from, Idx(static_cast<uint8_t>(tr),
-                                      static_cast<uint8_t>(tc))});
+          out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
+                                       static_cast<uint8_t>(tc))};
         }
         break;
       }
@@ -362,47 +364,46 @@ void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
 }
 
 void EmitSoldierMoves(const XqB& board, uint8_t from, XqP player,
-                      std::vector<XqA>& out) noexcept {
+                      std::span<XqA> out, std::size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   const int forward = player ? -1 : 1;
   // Forward.
-  TryPushMove(board, from, r + forward, c, player, out);
+  TryPushMove(board, from, r + forward, c, player, out, count);
   // Sideways after crossing the river (Red: row >= 5; Black: row <= 4).
   const bool crossed = player ? (r <= 4) : (r >= 5);
   if (crossed) {
-    TryPushMove(board, from, r, c - 1, player, out);
-    TryPushMove(board, from, r, c + 1, player, out);
+    TryPushMove(board, from, r, c - 1, player, out, count);
+    TryPushMove(board, from, r, c + 1, player, out, count);
   }
 }
 
-void EmitPseudoLegalMoves(const XqB& board, XqP player,
-                          std::vector<XqA>& out) noexcept {
-  out.clear();
-  out.reserve(64);  // Rough upper bound for typical positions.
+void EmitPseudoLegalMoves(const XqB& board, XqP player, std::span<XqA> out,
+                          std::size_t& count) noexcept {
+  count = 0;
   for (uint8_t cell = 0; cell < kBoardCells; ++cell) {
     const int8_t code = board[cell];
     if (!IsOwnedBy(code, player)) continue;
     switch (PieceType(code)) {
       case kRedGeneral:
-        EmitGeneralMoves(board, cell, player, out);
+        EmitGeneralMoves(board, cell, player, out, count);
         break;
       case kRedAdvisor:
-        EmitAdvisorMoves(board, cell, player, out);
+        EmitAdvisorMoves(board, cell, player, out, count);
         break;
       case kRedElephant:
-        EmitElephantMoves(board, cell, player, out);
+        EmitElephantMoves(board, cell, player, out, count);
         break;
       case kRedHorse:
-        EmitHorseMoves(board, cell, player, out);
+        EmitHorseMoves(board, cell, player, out, count);
         break;
       case kRedChariot:
-        EmitChariotMoves(board, cell, player, out);
+        EmitChariotMoves(board, cell, player, out, count);
         break;
       case kRedCannon:
-        EmitCannonMoves(board, cell, player, out);
+        EmitCannonMoves(board, cell, player, out, count);
         break;
       case kRedSoldier:
-        EmitSoldierMoves(board, cell, player, out);
+        EmitSoldierMoves(board, cell, player, out, count);
         break;
       default:
         break;

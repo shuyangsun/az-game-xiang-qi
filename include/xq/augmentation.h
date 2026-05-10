@@ -63,7 +63,7 @@ inline constexpr std::size_t kNumAugmentations = 2;
  * `result.size() == kNumAugmentations`. `result[0]` is the
  * identity (the input itself); `result[1]` is the horizontal
  * mirror. The `XqGame` instances returned satisfy the same `Game`
- * concept as the input — `ValidActions().size()` is preserved
+ * concept as the input — the legal-action count returned by `ValidActionsInto` is preserved
  * because mirroring is a bijection on legal moves.
  */
 [[nodiscard]] std::vector<XqGame> AugmentAll(const XqGame& game) noexcept;
