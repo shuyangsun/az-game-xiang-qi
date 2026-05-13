@@ -30,8 +30,8 @@ struct XqA {
 ## PolicyIndex
 
 ```cpp
-constexpr std::size_t PolicyIndex(const XqA& a) const noexcept {
-  return static_cast<std::size_t>(a.from) * 90 + a.to;
+constexpr size_t PolicyIndex(const XqA& a) const noexcept {
+  return static_cast<size_t>(a.from) * 90 + a.to;
 }
 ```
 

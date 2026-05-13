@@ -41,8 +41,8 @@ enum class XqError : uint8_t { /* see below */ };
 ## Static contract
 
 ```cpp
-static constexpr std::size_t   kHistoryLookback = 0;
-static constexpr std::size_t   kPolicySize      = 90 * 90;  // 8100
+static constexpr size_t   kHistoryLookback = 0;
+static constexpr size_t   kPolicySize      = 90 * 90;  // 8100
 static constexpr std::optional<uint32_t> kMaxRounds = 300;
 ```
 
@@ -59,8 +59,8 @@ static constexpr std::optional<uint32_t> kMaxRounds = 300;
   `position_history_` storage.
 
 ```cpp
-[[nodiscard]] std::size_t PolicyIndex(const XqA& a) const noexcept {
-  return static_cast<std::size_t>(a.from) * 90 + a.to;
+[[nodiscard]] size_t PolicyIndex(const XqA& a) const noexcept {
+  return static_cast<size_t>(a.from) * 90 + a.to;
 }
 ```
 

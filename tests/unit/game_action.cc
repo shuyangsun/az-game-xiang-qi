@@ -37,10 +37,10 @@ XqB EmptyBoard() noexcept { return XqB{}; }
 
 // Build a snapshot game with the given piece placements and side
 // to move. Convenient for piece-by-piece move-generation tests.
-XqGame MakeGame(std::initializer_list<std::pair<std::pair<uint8_t, uint8_t>,
-                                                int8_t>>
-                    placements,
-                XqP to_move) noexcept {
+XqGame MakeGame(
+    std::initializer_list<std::pair<std::pair<uint8_t, uint8_t>, int8_t>>
+        placements,
+    XqP to_move) noexcept {
   XqB board = EmptyBoard();
   for (const auto& [rc, code] : placements) {
     board[Idx(rc.first, rc.second)] = code;
@@ -69,10 +69,10 @@ std::vector<XqA> MovesFrom(const std::vector<XqA>& actions, uint8_t from) {
 
 TEST(GameAction, FR_API_POLICY_BIJECTION_PolicyIndex) {
   const XqGame game;
-  std::set<std::size_t> seen;
+  std::set<size_t> seen;
   for (uint8_t f = 0; f < kBoardCells; ++f) {
     for (uint8_t t = 0; t < kBoardCells; ++t) {
-      const std::size_t idx = game.PolicyIndex(XqA{f, t});
+      const size_t idx = game.PolicyIndex(XqA{f, t});
       EXPECT_LT(idx, XqGame::kPolicySize);
       EXPECT_TRUE(seen.insert(idx).second)
           << "PolicyIndex collision at (" << static_cast<int>(f) << ", "
@@ -88,8 +88,7 @@ TEST(GameAction, FR_API_POLICY_BIJECTION_FromAndToFormula) {
   EXPECT_EQ(game.PolicyIndex(XqA{0, 0}), 0u);
   EXPECT_EQ(game.PolicyIndex(XqA{0, 1}), 1u);
   EXPECT_EQ(game.PolicyIndex(XqA{1, 0}), kBoardCells);
-  EXPECT_EQ(game.PolicyIndex(XqA{2, 3}),
-            2u * kBoardCells + 3u);
+  EXPECT_EQ(game.PolicyIndex(XqA{2, 3}), 2u * kBoardCells + 3u);
   EXPECT_EQ(game.PolicyIndex(XqA{kBoardCells - 1, kBoardCells - 1}),
             XqGame::kPolicySize - 1);
 }
@@ -101,7 +100,7 @@ TEST(GameAction, FR_API_VALID_DETERMINISTIC_Initial) {
   const std::vector<XqA> a = ValidActions(game);
   const std::vector<XqA> b = ValidActions(game);
   ASSERT_EQ(a.size(), b.size());
-  for (std::size_t i = 0; i < a.size(); ++i) {
+  for (size_t i = 0; i < a.size(); ++i) {
     EXPECT_EQ(a[i].from, b[i].from);
     EXPECT_EQ(a[i].to, b[i].to);
   }
@@ -177,8 +176,8 @@ TEST(GameAction, FR_GEN_FLYING_BlocksOpenFile) {
   // chariot off col 4 must leave the column completely empty between
   // them, which is a Flying Generals violation. The filter must
   // remove every such move.
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 4}, kBG}, {{3, 4}, kRC}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 4}, kBG}, {{3, 4}, kRC}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(3, 4));
   // ValidActions might still be empty if the position itself is
   // already terminal; but as long as the chariot move list contains
@@ -186,10 +185,10 @@ TEST(GameAction, FR_GEN_FLYING_BlocksOpenFile) {
   // stays on col 4).
   for (const XqA& a : moves) {
     const uint8_t to_col = a.to % kBoardCols;
-    EXPECT_EQ(to_col, 4u)
-        << "Move (" << static_cast<int>(a.from) << "->"
-        << static_cast<int>(a.to) << ") would expose the Generals "
-        << "to a flying-general violation.";
+    EXPECT_EQ(to_col, 4u) << "Move (" << static_cast<int>(a.from) << "->"
+                          << static_cast<int>(a.to)
+                          << ") would expose the Generals "
+                          << "to a flying-general violation.";
   }
 }
 
@@ -197,8 +196,8 @@ TEST(GameAction, FR_GEN_FLYING_BlocksOpenFile) {
 
 TEST(GameAction, FR_ADV_DIAG_1_AdvisorDiagonalMoves) {
   // Red Advisor at palace center (1, 4) — can reach 4 corners.
-  const XqGame game = MakeGame({{{1, 4}, kRA}, {{0, 4}, kRG}, {{9, 3}, kBG}},
-                               kRed);
+  const XqGame game =
+      MakeGame({{{1, 4}, kRA}, {{0, 4}, kRG}, {{9, 3}, kBG}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(1, 4));
   EXPECT_TRUE(HasMove(moves, Idx(1, 4), Idx(0, 3)));
   EXPECT_TRUE(HasMove(moves, Idx(1, 4), Idx(0, 5)));
@@ -209,8 +208,8 @@ TEST(GameAction, FR_ADV_DIAG_1_AdvisorDiagonalMoves) {
 
 TEST(GameAction, FR_ADV_PALACE_AdvisorCannotLeavePalace) {
   // Advisor at corner (0, 3): only diagonal target is (1, 4).
-  const XqGame game = MakeGame({{{0, 3}, kRA}, {{0, 4}, kRG}, {{9, 3}, kBG}},
-                               kRed);
+  const XqGame game =
+      MakeGame({{{0, 3}, kRA}, {{0, 4}, kRG}, {{9, 3}, kBG}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(0, 3));
   EXPECT_TRUE(HasMove(moves, Idx(0, 3), Idx(1, 4)));
   EXPECT_EQ(moves.size(), 1u);
@@ -219,9 +218,8 @@ TEST(GameAction, FR_ADV_PALACE_AdvisorCannotLeavePalace) {
 // --------------------- Elephant (FR-ELE-*) --------------------------------
 
 TEST(GameAction, FR_ELE_DIAG_2_ElephantTwoStepDiagonal) {
-  const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG},
-                                {{2, 4}, kRE}},
-                               kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{2, 4}, kRE}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(2, 4));
   EXPECT_TRUE(HasMove(moves, Idx(2, 4), Idx(0, 2)));
   EXPECT_TRUE(HasMove(moves, Idx(2, 4), Idx(0, 6)));
@@ -232,14 +230,12 @@ TEST(GameAction, FR_ELE_DIAG_2_ElephantTwoStepDiagonal) {
 
 TEST(GameAction, FR_ELE_NO_RIVER_RedElephantStaysBelowFive) {
   // Red Elephant at (4, 4) — moving diag-2 to row 6 would cross river.
-  const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG},
-                                {{4, 4}, kRE}},
-                               kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kRE}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   for (const XqA& a : moves) {
     const uint8_t to_r = a.to / kBoardCols;
-    EXPECT_LE(to_r, 4u)
-        << "Red Elephant must not cross the river.";
+    EXPECT_LE(to_r, 4u) << "Red Elephant must not cross the river.";
   }
   // Should still have moves to (2, 2) and (2, 6) (eyes are empty).
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(2, 2)));
@@ -262,9 +258,8 @@ TEST(GameAction, FR_ELE_EYE_BLOCKED_ElephantBlockedByMidpoint) {
 
 TEST(GameAction, FR_HORSE_L_HorseFullEightTargets) {
   // Horse on (4, 4) in a clear board has all 8 L-moves.
-  const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG},
-                                {{4, 4}, kRH}},
-                               kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kRH}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(6, 5)));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(6, 3)));
@@ -281,8 +276,7 @@ TEST(GameAction, FR_HORSE_LEG_BLOCKED_HorseHobbled) {
   // Horse at (4, 4) with a friendly piece on (5, 4) — blocks the
   // (6, 5) and (6, 3) moves but not the others.
   const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kRH}, {{5, 4}, kRP}},
-      kRed);
+      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kRH}, {{5, 4}, kRP}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_FALSE(HasMove(moves, Idx(4, 4), Idx(6, 5)));
   EXPECT_FALSE(HasMove(moves, Idx(4, 4), Idx(6, 3)));
@@ -296,9 +290,8 @@ TEST(GameAction, FR_HORSE_LEG_BLOCKED_HorseHobbled) {
 // --------------------- Chariot (FR-CHAR-*) --------------------------------
 
 TEST(GameAction, FR_CHAR_LINE_ChariotSlidesAlongFile) {
-  const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG},
-                                {{4, 0}, kRC}},
-                               kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 0}, kRC}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   // Chariot on (4, 0): file moves to rows {0, 1, 2, 3, 5, 6, 7, 8, 9}
   // (excluding (4, 0) itself and (0, 4)/(9, 4) on col 4).
@@ -344,8 +337,8 @@ TEST(GameAction, FR_CAPTURE_NO_FRIEND_ChariotCannotCaptureFriend) {
 // --------------------- Cannon (FR-CANNON-*) -------------------------------
 
 TEST(GameAction, FR_CANNON_MOVE_NoCaptureBehavesLikeChariot) {
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 0}, kBG}, {{4, 0}, kRP}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 0}, kBG}, {{4, 0}, kRP}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(4, 0));
   // No screens => no captures, but still free movement along open
   // ranks/files.
@@ -410,8 +403,8 @@ TEST(GameAction, FR_CANNON_TARGET_ENEMY_FriendlyTargetRejected) {
 
 TEST(GameAction, FR_SOLDIER_FORWARD_PRE_RedSoldierBeforeRiver) {
   // Red Soldier at (3, 4), still on Red's side.
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{3, 4}, kRS}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{3, 4}, kRS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(3, 4));
   EXPECT_TRUE(HasMove(moves, Idx(3, 4), Idx(4, 4)));
   EXPECT_EQ(moves.size(), 1u);
@@ -419,46 +412,46 @@ TEST(GameAction, FR_SOLDIER_FORWARD_PRE_RedSoldierBeforeRiver) {
 
 TEST(GameAction, FR_SOLDIER_SIDEWAYS_POST_RedSoldierAfterRiver) {
   // Red Soldier at (5, 4) — across the river.
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(5, 4));
-  EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(6, 4)));   // forward
-  EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(5, 3)));   // left
-  EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(5, 5)));   // right
+  EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(6, 4)));  // forward
+  EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(5, 3)));  // left
+  EXPECT_TRUE(HasMove(moves, Idx(5, 4), Idx(5, 5)));  // right
   EXPECT_EQ(moves.size(), 3u);
 }
 
 TEST(GameAction, FR_SOLDIER_NO_BACK_RedSoldierCannotMoveBackward) {
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(5, 4));
   EXPECT_FALSE(HasMove(moves, Idx(5, 4), Idx(4, 4)));
 }
 
 TEST(GameAction, FR_SOLDIER_FORWARD_PRE_BlackSoldierBeforeRiver) {
   // Black Soldier at (6, 4) — still on Black's side.
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{6, 4}, kBS}}, kBlack);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{6, 4}, kBS}}, kBlack);
   const auto moves = MovesFrom(ValidActions(game), Idx(6, 4));
   EXPECT_TRUE(HasMove(moves, Idx(6, 4), Idx(5, 4)));
   EXPECT_EQ(moves.size(), 1u);
 }
 
 TEST(GameAction, FR_SOLDIER_SIDEWAYS_POST_BlackSoldierAfterRiver) {
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kBS}}, kBlack);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kBS}}, kBlack);
   const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
-  EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(3, 4)));   // forward
-  EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(4, 3)));   // left
-  EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(4, 5)));   // right
+  EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(3, 4)));  // forward
+  EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(4, 3)));  // left
+  EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(4, 5)));  // right
   EXPECT_EQ(moves.size(), 3u);
 }
 
 TEST(GameAction, FR_SOLDIER_NO_PROMOTION_StaysSoldierAtBackRank) {
   // Red Soldier at row 9 (Black's back rank); should still only have
   // sideways moves (it cannot move forward off the board).
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{8, 0}, kBG}, {{9, 4}, kRS}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{8, 0}, kBG}, {{9, 4}, kRS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(9, 4));
   EXPECT_TRUE(HasMove(moves, Idx(9, 4), Idx(9, 3)));
   EXPECT_TRUE(HasMove(moves, Idx(9, 4), Idx(9, 5)));
@@ -511,7 +504,7 @@ TEST(GameAction, FR_MCTS_DEEP_ROLLOUT_DeepUndoRestoresState) {
     game.ApplyActionInPlace(actions.front());
   }
   // Undo all of them.
-  for (std::size_t i = 0; i < applied.size(); ++i) {
+  for (size_t i = 0; i < applied.size(); ++i) {
     game.UndoLastAction();
   }
   EXPECT_EQ(game.GetBoard(), before_board);
@@ -536,7 +529,7 @@ TEST(GameAction, FR_MCTS_DEEP_ROLLOUT_FullCapacityRoundTrip) {
     applied.push_back(actions.front());
     game.ApplyActionInPlace(actions.front());
   }
-  for (std::size_t i = 0; i < applied.size(); ++i) {
+  for (size_t i = 0; i < applied.size(); ++i) {
     game.UndoLastAction();
   }
   EXPECT_EQ(game.GetBoard(), before_board);
@@ -566,8 +559,8 @@ TEST(GameAction, FR_CAPTURE_REMOVE_CapturedPieceRestoredOnUndo) {
 TEST(GameAction, FR_GEN_CAPTURE_GeneralCapturesAdjacentEnemy) {
   // Black Chariot has invaded Red's palace next to Red General. Red
   // General captures it.
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 5}, kBC}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 5}, kBC}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(0, 4));
   EXPECT_TRUE(HasMove(moves, Idx(0, 4), Idx(0, 5)));
 
@@ -578,11 +571,8 @@ TEST(GameAction, FR_GEN_CAPTURE_GeneralCapturesAdjacentEnemy) {
 }
 
 TEST(GameAction, FR_ELE_CAPTURE_ElephantCapturesEnemyAtDiagonalTwo) {
-  const XqGame game = MakeGame({{{0, 4}, kRG},
-                                {{9, 3}, kBG},
-                                {{2, 4}, kRE},
-                                {{4, 6}, kBS}},
-                               kRed);
+  const XqGame game = MakeGame(
+      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{2, 4}, kRE}, {{4, 6}, kBS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(2, 4));
   EXPECT_TRUE(HasMove(moves, Idx(2, 4), Idx(4, 6)));
   XqGame mut = game;
@@ -592,11 +582,8 @@ TEST(GameAction, FR_ELE_CAPTURE_ElephantCapturesEnemyAtDiagonalTwo) {
 }
 
 TEST(GameAction, FR_HORSE_CAPTURE_HorseCapturesEnemyAtLDestination) {
-  const XqGame game = MakeGame({{{0, 4}, kRG},
-                                {{9, 3}, kBG},
-                                {{4, 4}, kRH},
-                                {{6, 5}, kBS}},
-                               kRed);
+  const XqGame game = MakeGame(
+      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kRH}, {{6, 5}, kBS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(6, 5)));
   XqGame mut = game;
@@ -606,27 +593,24 @@ TEST(GameAction, FR_HORSE_CAPTURE_HorseCapturesEnemyAtLDestination) {
 }
 
 TEST(GameAction, FR_SOLDIER_NO_DIAG_PreRiverNoDiagonalMoves) {
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{3, 4}, kRS}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{3, 4}, kRS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(3, 4));
   EXPECT_FALSE(HasMove(moves, Idx(3, 4), Idx(4, 3)));
   EXPECT_FALSE(HasMove(moves, Idx(3, 4), Idx(4, 5)));
 }
 
 TEST(GameAction, FR_SOLDIER_NO_DIAG_PostRiverNoDiagonalMoves) {
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kRS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(5, 4));
   EXPECT_FALSE(HasMove(moves, Idx(5, 4), Idx(6, 3)));
   EXPECT_FALSE(HasMove(moves, Idx(5, 4), Idx(6, 5)));
 }
 
 TEST(GameAction, FR_SOLDIER_CAPTURE_SoldierCapturesEnemyForward) {
-  const XqGame game = MakeGame({{{0, 4}, kRG},
-                                {{9, 3}, kBG},
-                                {{4, 4}, kRS},
-                                {{5, 4}, kBS}},
-                               kRed);
+  const XqGame game = MakeGame(
+      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{4, 4}, kRS}, {{5, 4}, kBS}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(4, 4));
   EXPECT_TRUE(HasMove(moves, Idx(4, 4), Idx(5, 4)));
   XqGame mut = game;
@@ -640,8 +624,8 @@ TEST(GameAction, FR_CHECK_DETECTED_AttackedGeneralForcesEscape) {
   // The only Red piece is the General. ValidActions must contain
   // only moves that escape the check. (0, 3) and (0, 5) are not
   // attacked; (1, 4) is still on col 4 and remains in check.
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 0}, kBG}, {{5, 4}, kBC}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 0}, kBG}, {{5, 4}, kBC}}, kRed);
   const std::vector<XqA> actions = ValidActions(game);
   for (const XqA& a : actions) {
     const uint8_t to_col = a.to % kBoardCols;
@@ -692,16 +676,16 @@ TEST(GameAction, BlackGeneralOrthogonalMovesInsidePalace) {
 }
 
 TEST(GameAction, BlackAdvisorReachesPalaceCenter) {
-  const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 4}, kBG}, {{9, 3}, kBA}},
-                               kBlack);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 4}, kBG}, {{9, 3}, kBA}}, kBlack);
   const auto moves = MovesFrom(ValidActions(game), Idx(9, 3));
   EXPECT_TRUE(HasMove(moves, Idx(9, 3), Idx(8, 4)));
   EXPECT_EQ(moves.size(), 1u);
 }
 
 TEST(GameAction, BlackElephantStaysOnOwnSide) {
-  const XqGame game = MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kBE}},
-                               kBlack);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{5, 4}, kBE}}, kBlack);
   const auto moves = MovesFrom(ValidActions(game), Idx(5, 4));
   for (const XqA& a : moves) {
     const uint8_t to_r = a.to / kBoardCols;
@@ -735,8 +719,8 @@ TEST(GameAction, HorseHobbledInAllFourLegDirections) {
 }
 
 TEST(GameAction, HorseAtBoardCornerHasOnlyTwoMoves) {
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 0}, kRH}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 0}, kRH}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(0, 0));
   EXPECT_TRUE(HasMove(moves, Idx(0, 0), Idx(1, 2)));
   EXPECT_TRUE(HasMove(moves, Idx(0, 0), Idx(2, 1)));
@@ -744,8 +728,8 @@ TEST(GameAction, HorseAtBoardCornerHasOnlyTwoMoves) {
 }
 
 TEST(GameAction, ChariotAtBoardCornerSweepsTwoLines) {
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 0}, kRC}}, kRed);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{0, 0}, kRC}}, kRed);
   const auto moves = MovesFrom(ValidActions(game), Idx(0, 0));
   // Should reach (0, 1)..(0, 8) except (0, 4) where Red General sits.
   for (uint8_t c = 1; c <= 3; ++c) {
@@ -775,8 +759,8 @@ TEST(GameAction, CannonCanShootAcrossManyEmptyCells) {
 }
 
 TEST(GameAction, BlackSoldierForwardIsNegativeRowDelta) {
-  const XqGame game = MakeGame(
-      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{6, 0}, kBS}}, kBlack);
+  const XqGame game =
+      MakeGame({{{0, 4}, kRG}, {{9, 3}, kBG}, {{6, 0}, kBS}}, kBlack);
   const auto moves = MovesFrom(ValidActions(game), Idx(6, 0));
   EXPECT_TRUE(HasMove(moves, Idx(6, 0), Idx(5, 0)));
   EXPECT_FALSE(HasMove(moves, Idx(6, 0), Idx(7, 0)))
@@ -865,11 +849,8 @@ TEST(GameAction, CheckEscapableByCapturingTheChecker) {
   // Red General at (1, 4). Black Chariot at (3, 4) attacks col 4 →
   // Red is in check. Red Chariot at (3, 5) can capture the checker
   // by moving one step left to (3, 4).
-  const XqGame game = MakeGame({{{1, 4}, kRG},
-                                {{9, 0}, kBG},
-                                {{3, 5}, kRC},
-                                {{3, 4}, kBC}},
-                               kRed);
+  const XqGame game = MakeGame(
+      {{{1, 4}, kRG}, {{9, 0}, kBG}, {{3, 5}, kRC}, {{3, 4}, kBC}}, kRed);
   const std::vector<XqA> actions = ValidActions(game);
   EXPECT_TRUE(HasMove(actions, Idx(3, 5), Idx(3, 4)))
       << "Capturing the checker is a legal way to escape check.";
@@ -882,11 +863,8 @@ TEST(GameAction, MoveExposingDiscoveredSelfCheckIsRejected) {
   // the Black chariot at (5, 4), removing the cannon at (3, 4)
   // exposes the General to the chariot. So moving the cannon off
   // col 4 is illegal.
-  const XqGame game = MakeGame({{{0, 4}, kRG},
-                                {{9, 3}, kBG},
-                                {{3, 4}, kRP},
-                                {{5, 4}, kBC}},
-                               kRed);
+  const XqGame game = MakeGame(
+      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{3, 4}, kRP}, {{5, 4}, kBC}}, kRed);
   const std::vector<XqA> moves = MovesFrom(ValidActions(game), Idx(3, 4));
   for (const XqA& a : moves) {
     EXPECT_EQ(a.to % kBoardCols, 4u)

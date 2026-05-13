@@ -18,9 +18,9 @@ namespace {
 using ::az::game::xq::internal::IsRed;
 
 // 14 piece-type planes (7 own + 7 opponent) + 1 side-to-move plane.
-constexpr std::size_t kNumPlanes = 15;
+constexpr size_t kNumPlanes = 15;
 
-constexpr std::size_t PlaneOffset(std::size_t plane) noexcept {
+constexpr size_t PlaneOffset(size_t plane) noexcept {
   return plane * kBoardCells;
 }
 
@@ -39,17 +39,16 @@ std::vector<float> XqSerializer::SerializeCurrentState(
   // Use the canonical board so own pieces are positive (codes 1..7)
   // and opponent pieces are negative (codes -1..-7).
   const XqB canonical = game.CanonicalBoard();
-  for (std::size_t cell = 0; cell < kBoardCells; ++cell) {
+  for (size_t cell = 0; cell < kBoardCells; ++cell) {
     const int8_t code = canonical[cell];
     if (code == 0) continue;
-    const std::size_t plane =
-        IsRed(code) ? static_cast<std::size_t>(code - 1)
-                    : static_cast<std::size_t>(7 + (-code - 1));
+    const size_t plane = IsRed(code) ? static_cast<size_t>(code - 1)
+                                     : static_cast<size_t>(7 + (-code - 1));
     out[PlaneOffset(plane) + cell] = 1.0F;
   }
 
   if (game.CurrentPlayer() == kRed) {
-    const std::size_t base = PlaneOffset(14);
+    const size_t base = PlaneOffset(14);
     std::fill(out.begin() + base, out.begin() + base + kBoardCells, 1.0F);
   }
 
@@ -67,10 +66,10 @@ std::vector<float> XqSerializer::SerializePolicyOutput(
   out[0] = target.z;
 
   std::array<XqA, XqGame::kMaxLegalActions> actions{};
-  const std::size_t count = game.ValidActionsInto(actions);
-  const std::size_t n = std::min(count, target.pi.size());
-  for (std::size_t i = 0; i < n; ++i) {
-    const std::size_t slot = 1 + game.PolicyIndex(actions[i]);
+  const size_t count = game.ValidActionsInto(actions);
+  const size_t n = std::min(count, target.pi.size());
+  for (size_t i = 0; i < n; ++i) {
+    const size_t slot = 1 + game.PolicyIndex(actions[i]);
     if (slot < out.size()) {
       out[slot] = target.pi[i];
     }

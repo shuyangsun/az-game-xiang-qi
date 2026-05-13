@@ -24,10 +24,9 @@ std::vector<XqGame> XqInferenceAugmenter::Augment(
   // Build a lookup from each original-frame action's PolicyIndex to
   // its position in `original.ValidActionsInto()`.
   std::array<XqA, XqGame::kMaxLegalActions> orig_actions{};
-  const std::size_t orig_count = original.ValidActionsInto(orig_actions);
-  std::vector<std::size_t> slot_for_policy_index(XqGame::kPolicySize,
-                                                  orig_count);
-  for (std::size_t i = 0; i < orig_count; ++i) {
+  const size_t orig_count = original.ValidActionsInto(orig_actions);
+  std::vector<size_t> slot_for_policy_index(XqGame::kPolicySize, orig_count);
+  for (size_t i = 0; i < orig_count; ++i) {
     slot_for_policy_index[original.PolicyIndex(orig_actions[i])] = i;
   }
 
@@ -35,21 +34,21 @@ std::vector<XqGame> XqInferenceAugmenter::Augment(
   // per-variant probability vectors).
   std::vector<float> probs(orig_count, 0.0F);
   float value_sum = 0.0F;
-  std::size_t variant_count = 0;
+  size_t variant_count = 0;
   std::array<XqA, XqGame::kMaxLegalActions> v_actions{};
-  const std::size_t n = std::min(augmented.size(), evaluations.size());
-  for (std::size_t i = 0; i < n; ++i) {
+  const size_t n = std::min(augmented.size(), evaluations.size());
+  for (size_t i = 0; i < n; ++i) {
     const internal::XqAugmentation sym =
         static_cast<internal::XqAugmentation>(i);
-    const std::size_t v_count = augmented[i].ValidActionsInto(v_actions);
+    const size_t v_count = augmented[i].ValidActionsInto(v_actions);
     const ::az::game::api::Evaluation& eval = evaluations[i];
-    const std::size_t m = std::min(v_count, eval.probabilities.size());
-    for (std::size_t j = 0; j < m; ++j) {
+    const size_t m = std::min(v_count, eval.probabilities.size());
+    for (size_t j = 0; j < m; ++j) {
       const XqA orig_action =
           internal::InverseTransformAction(v_actions[j], sym);
-      const std::size_t pidx = original.PolicyIndex(orig_action);
+      const size_t pidx = original.PolicyIndex(orig_action);
       if (pidx >= slot_for_policy_index.size()) continue;
-      const std::size_t slot = slot_for_policy_index[pidx];
+      const size_t slot = slot_for_policy_index[pidx];
       if (slot >= probs.size()) continue;
       probs[slot] += eval.probabilities[j];
     }

@@ -37,7 +37,7 @@ enum class XqAugmentation : uint8_t {
  * cardinality of `XqAugmentation` and the size of every
  * `AugmentAll(game)` return value.
  */
-inline constexpr std::size_t kNumAugmentations = 2;
+inline constexpr size_t kNumAugmentations = 2;
 
 /**
  * @brief Mirror an action across the central file.
@@ -63,8 +63,8 @@ inline constexpr std::size_t kNumAugmentations = 2;
  * `result.size() == kNumAugmentations`. `result[0]` is the
  * identity (the input itself); `result[1]` is the horizontal
  * mirror. The `XqGame` instances returned satisfy the same `Game`
- * concept as the input — the legal-action count returned by `ValidActionsInto` is preserved
- * because mirroring is a bijection on legal moves.
+ * concept as the input — the legal-action count returned by `ValidActionsInto`
+ * is preserved because mirroring is a bijection on legal moves.
  */
 [[nodiscard]] std::vector<XqGame> AugmentAll(const XqGame& game) noexcept;
 

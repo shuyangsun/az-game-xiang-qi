@@ -120,7 +120,7 @@ class XqGame {
    * this at 0 also avoids inflating the engine's per-node history
    * `RingBuffer<XqGame, std::array<XqGame, N>>`.
    */
-  static constexpr std::size_t kHistoryLookback = 0;
+  static constexpr size_t kHistoryLookback = 0;
 
   /**
    * @brief Cardinality of the full action space — fixed-size policy
@@ -132,8 +132,8 @@ class XqGame {
    * physically impossible moves; they are masked out by
    * `ValidActionsInto()` and stay zero in the policy serializer.
    */
-  static constexpr std::size_t kPolicySize =
-      static_cast<std::size_t>(kBoardCells) * kBoardCells;
+  static constexpr size_t kPolicySize =
+      static_cast<size_t>(kBoardCells) * kBoardCells;
 
   /**
    * @brief Per-state legal-action ceiling for the dense policy head.
@@ -147,7 +147,7 @@ class XqGame {
    * but the network and replay-buffer layout are sized for the
    * dense policy head, not for the tightest legal-move bound.
    */
-  static constexpr std::size_t kMaxLegalActions = kPolicySize;
+  static constexpr size_t kMaxLegalActions = kPolicySize;
 
   /**
    * @brief Self-play hard cap on `CurrentRound()`.
@@ -260,7 +260,7 @@ class XqGame {
    * has no "pass" — a side with no legal moves loses (checkmate or
    * stalemate, both scored as a loss for the side to move).
    */
-  [[nodiscard]] std::size_t ValidActionsInto(
+  [[nodiscard]] size_t ValidActionsInto(
       std::array<XqA, kMaxLegalActions>& out) const noexcept;
 
   /**
@@ -299,7 +299,7 @@ class XqGame {
    * any piece) are still valid policy slots; they are masked by
    * `ValidActions()` and stay zero in the policy serializer.
    */
-  [[nodiscard]] std::size_t PolicyIndex(const XqA& action) const noexcept;
+  [[nodiscard]] size_t PolicyIndex(const XqA& action) const noexcept;
 
   // -------------------------------- Mutation
   // ----------------------------------
@@ -364,8 +364,7 @@ class XqGame {
  private:
   // Fixed-size action history. Sized to `*kMaxRounds` so the engine
   // can undo the deepest possible rollout without reallocating.
-  static constexpr std::size_t kHistoryCap =
-      static_cast<std::size_t>(kMaxRounds.value());
+  static constexpr size_t kHistoryCap = static_cast<size_t>(kMaxRounds.value());
 
   // Board state. Default-initialized to the standard starting
   // position by the no-arg constructor.

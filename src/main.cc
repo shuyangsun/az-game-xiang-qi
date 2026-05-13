@@ -56,12 +56,12 @@ unsigned ErrorCode(XqError e) noexcept {
 }
 
 std::string Trim(std::string_view input) noexcept {
-  std::size_t start = 0;
+  size_t start = 0;
   while (start < input.size() &&
          std::isspace(static_cast<unsigned char>(input[start])) != 0) {
     ++start;
   }
-  std::size_t end = input.size();
+  size_t end = input.size();
   while (end > start &&
          std::isspace(static_cast<unsigned char>(input[end - 1])) != 0) {
     --end;
@@ -101,7 +101,7 @@ void PrintHelp(std::ostream& os) {
 void PrintValidActions(std::ostream& os, const XqGame& game,
                        std::span<const XqA> actions) {
   os << "Valid actions (" << actions.size() << "):\n";
-  for (std::size_t i = 0; i < actions.size(); ++i) {
+  for (size_t i = 0; i < actions.size(); ++i) {
     os << "  " << game.ActionToString(actions[i]) << "\n";
   }
 }
@@ -148,7 +148,7 @@ void PrintSerializationDebug(std::ostream& os, const XqGame& game,
   const Evaluation& got = *roundtrip;
   bool match = got.probabilities.size() == probe.pi.size() &&
                ApproxEqual(got.value, probe.z);
-  for (std::size_t i = 0; match && i < probe.pi.size(); ++i) {
+  for (size_t i = 0; match && i < probe.pi.size(); ++i) {
     if (!ApproxEqual(got.probabilities[i], probe.pi[i])) {
       match = false;
     }
@@ -169,8 +169,8 @@ void PrintAugmentationDebug(std::ostream& os, const XqGame& game,
   const std::vector<XqGame> augmented = inference.Augment(game);
   os << "[debug] inference variants:   " << augmented.size() << "\n";
   std::array<XqA, XqGame::kMaxLegalActions> aug_actions{};
-  for (std::size_t i = 0; i < augmented.size(); ++i) {
-    const std::size_t aug_count = augmented[i].ValidActionsInto(aug_actions);
+  for (size_t i = 0; i < augmented.size(); ++i) {
+    const size_t aug_count = augmented[i].ValidActionsInto(aug_actions);
     os << "[debug]   key=" << i << " actions=" << aug_count << "\n";
   }
 
@@ -251,7 +251,7 @@ int main() {
     }
 
     std::array<XqA, XqGame::kMaxLegalActions> valid_actions_buf{};
-    const std::size_t valid_count = game.ValidActionsInto(valid_actions_buf);
+    const size_t valid_count = game.ValidActionsInto(valid_actions_buf);
     const std::span<const XqA> valid_actions(valid_actions_buf.data(),
                                              valid_count);
     std::cout << "\nValid actions: " << valid_count

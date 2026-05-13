@@ -26,8 +26,8 @@ constexpr int8_t kBlkCha = -5;
 constexpr int8_t kBlkCan = -6;
 constexpr int8_t kBlkSol = -7;
 
-constexpr std::size_t Cell(uint8_t row, uint8_t col) noexcept {
-  return static_cast<std::size_t>(row) * kBoardCols + col;
+constexpr size_t Cell(uint8_t row, uint8_t col) noexcept {
+  return static_cast<size_t>(row) * kBoardCols + col;
 }
 
 XqB ExpectedStartBoard() noexcept {
@@ -144,11 +144,11 @@ TEST(GameConstructors, FR_INIT_SOLDIERS_DefaultBoard) {
 TEST(GameConstructors, FR_INIT_EMPTY_CELLS_DefaultBoard) {
   const XqGame game;
   const XqB expected = ExpectedStartBoard();
-  for (std::size_t i = 0; i < expected.size(); ++i) {
+  for (size_t i = 0; i < expected.size(); ++i) {
     if (expected[i] != 0) continue;
     EXPECT_EQ(game.GetBoard()[i], 0)
-        << "Expected empty cell at index " << i << " (row "
-        << (i / kBoardCols) << " col " << (i % kBoardCols) << ").";
+        << "Expected empty cell at index " << i << " (row " << (i / kBoardCols)
+        << " col " << (i % kBoardCols) << ").";
   }
 }
 
@@ -176,7 +176,8 @@ TEST(GameConstructors, FR_INIT_NO_LAST_Explicit) {
 
 TEST(GameConstructors, FR_MCTS_COPY_PRESERVES_FreshGame) {
   const XqGame game;
-  const XqGame copy = game;  // NOLINT(performance-unnecessary-copy-initialization)
+  const XqGame copy =
+      game;  // NOLINT(performance-unnecessary-copy-initialization)
   EXPECT_EQ(copy.GetBoard(), game.GetBoard());
   EXPECT_EQ(copy.CurrentRound(), game.CurrentRound());
   EXPECT_EQ(copy.CurrentPlayer(), game.CurrentPlayer());

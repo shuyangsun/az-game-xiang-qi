@@ -13,9 +13,10 @@ namespace az::game::xq {
 // into a heap vector so existing test code can keep treating legal
 // moves as a `std::vector<XqA>`. Production code paths use the
 // allocation-free buffer-based API directly.
-[[nodiscard]] inline std::vector<XqA> ValidActions(const XqGame& game) noexcept {
+[[nodiscard]] inline std::vector<XqA> ValidActions(
+    const XqGame& game) noexcept {
   std::array<XqA, XqGame::kMaxLegalActions> buf{};
-  const std::size_t count = game.ValidActionsInto(buf);
+  const size_t count = game.ValidActionsInto(buf);
   return std::vector<XqA>(buf.begin(), buf.begin() + count);
 }
 

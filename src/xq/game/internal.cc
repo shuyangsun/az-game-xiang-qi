@@ -47,10 +47,10 @@ constexpr uint64_t MakeZobristBlackKey() noexcept {
 // Push (from, to) if the destination is in bounds and not own piece.
 inline void TryPushMove(const XqB& board, uint8_t from, int to_row, int to_col,
                         XqP player, std::span<XqA> out,
-                        std::size_t& count) noexcept {
+                        size_t& count) noexcept {
   if (!InBounds(to_row, to_col)) return;
-  const uint8_t to = Idx(static_cast<uint8_t>(to_row),
-                         static_cast<uint8_t>(to_col));
+  const uint8_t to =
+      Idx(static_cast<uint8_t>(to_row), static_cast<uint8_t>(to_col));
   if (IsOwnedBy(board[to], player)) return;
   out[count++] = XqA{from, to};
 }
@@ -58,15 +58,15 @@ inline void TryPushMove(const XqB& board, uint8_t from, int to_row, int to_col,
 // As above but with palace constraint.
 inline void TryPushPalaceMove(const XqB& board, uint8_t from, int to_row,
                               int to_col, XqP player, std::span<XqA> out,
-                              std::size_t& count) noexcept {
+                              size_t& count) noexcept {
   if (!InOwnPalace(to_row, to_col, player)) return;
   if (IsOwnedBy(board[Idx(static_cast<uint8_t>(to_row),
                           static_cast<uint8_t>(to_col))],
                 player)) {
     return;
   }
-  out[count++] = XqA{from, Idx(static_cast<uint8_t>(to_row),
-                               static_cast<uint8_t>(to_col))};
+  out[count++] = XqA{
+      from, Idx(static_cast<uint8_t>(to_row), static_cast<uint8_t>(to_col))};
 }
 
 // ============================================================================
@@ -106,8 +106,8 @@ bool ElephantAttacks(const XqB& board, uint8_t from, uint8_t target,
   // Eye must be empty.
   const int er = (fr + tr) / 2;
   const int ec = (fc + tc) / 2;
-  return board[Idx(static_cast<uint8_t>(er),
-                   static_cast<uint8_t>(ec))] == kEmpty;
+  return board[Idx(static_cast<uint8_t>(er), static_cast<uint8_t>(ec))] ==
+         kEmpty;
 }
 
 bool HorseAttacks(const XqB& board, uint8_t from, uint8_t target) noexcept {
@@ -125,8 +125,8 @@ bool HorseAttacks(const XqB& board, uint8_t from, uint8_t target) noexcept {
   } else {
     return false;
   }
-  return board[Idx(static_cast<uint8_t>(leg_r),
-                   static_cast<uint8_t>(leg_c))] == kEmpty;
+  return board[Idx(static_cast<uint8_t>(leg_r), static_cast<uint8_t>(leg_c))] ==
+         kEmpty;
 }
 
 bool ChariotAttacks(const XqB& board, uint8_t from, uint8_t target) noexcept {
@@ -137,16 +137,16 @@ bool ChariotAttacks(const XqB& board, uint8_t from, uint8_t target) noexcept {
   if (fr == tr) {
     const int step = (tc > fc) ? 1 : -1;
     for (int c = fc + step; c != tc; c += step) {
-      if (board[Idx(static_cast<uint8_t>(fr),
-                    static_cast<uint8_t>(c))] != kEmpty) {
+      if (board[Idx(static_cast<uint8_t>(fr), static_cast<uint8_t>(c))] !=
+          kEmpty) {
         return false;
       }
     }
   } else {
     const int step = (tr > fr) ? 1 : -1;
     for (int r = fr + step; r != tr; r += step) {
-      if (board[Idx(static_cast<uint8_t>(r),
-                    static_cast<uint8_t>(fc))] != kEmpty) {
+      if (board[Idx(static_cast<uint8_t>(r), static_cast<uint8_t>(fc))] !=
+          kEmpty) {
         return false;
       }
     }
@@ -166,16 +166,16 @@ bool CannonAttacks(const XqB& board, uint8_t from, uint8_t target) noexcept {
   if (fr == tr) {
     const int step = (tc > fc) ? 1 : -1;
     for (int c = fc + step; c != tc; c += step) {
-      if (board[Idx(static_cast<uint8_t>(fr),
-                    static_cast<uint8_t>(c))] != kEmpty) {
+      if (board[Idx(static_cast<uint8_t>(fr), static_cast<uint8_t>(c))] !=
+          kEmpty) {
         ++screens;
       }
     }
   } else {
     const int step = (tr > fr) ? 1 : -1;
     for (int r = fr + step; r != tr; r += step) {
-      if (board[Idx(static_cast<uint8_t>(r),
-                    static_cast<uint8_t>(fc))] != kEmpty) {
+      if (board[Idx(static_cast<uint8_t>(r), static_cast<uint8_t>(fc))] !=
+          kEmpty) {
         ++screens;
       }
     }
@@ -222,7 +222,7 @@ uint64_t HashBoard(const XqB& board, XqP current_player) noexcept {
 // ============================================================================
 
 void EmitGeneralMoves(const XqB& board, uint8_t from, XqP player,
-                      std::span<XqA> out, std::size_t& count) noexcept {
+                      std::span<XqA> out, size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-1, 1, 0, 0};
   static constexpr int kDC[] = {0, 0, -1, 1};
@@ -232,7 +232,7 @@ void EmitGeneralMoves(const XqB& board, uint8_t from, XqP player,
 }
 
 void EmitAdvisorMoves(const XqB& board, uint8_t from, XqP player,
-                      std::span<XqA> out, std::size_t& count) noexcept {
+                      std::span<XqA> out, size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-1, -1, 1, 1};
   static constexpr int kDC[] = {-1, 1, -1, 1};
@@ -242,7 +242,7 @@ void EmitAdvisorMoves(const XqB& board, uint8_t from, XqP player,
 }
 
 void EmitElephantMoves(const XqB& board, uint8_t from, XqP player,
-                       std::span<XqA> out, std::size_t& count) noexcept {
+                       std::span<XqA> out, size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-2, -2, 2, 2};
   static constexpr int kDC[] = {-2, 2, -2, 2};
@@ -253,30 +253,30 @@ void EmitElephantMoves(const XqB& board, uint8_t from, XqP player,
     if (!OnOwnSide(tr, player)) continue;  // Cannot cross river
     const int er = r + kDR[i] / 2;
     const int ec = c + kDC[i] / 2;
-    if (board[Idx(static_cast<uint8_t>(er),
-                  static_cast<uint8_t>(ec))] != kEmpty) {
+    if (board[Idx(static_cast<uint8_t>(er), static_cast<uint8_t>(ec))] !=
+        kEmpty) {
       continue;  // Eye blocked
     }
-    if (IsOwnedBy(board[Idx(static_cast<uint8_t>(tr),
-                            static_cast<uint8_t>(tc))],
-                  player)) {
+    if (IsOwnedBy(
+            board[Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))],
+            player)) {
       continue;
     }
-    out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
-                                 static_cast<uint8_t>(tc))};
+    out[count++] =
+        XqA{from, Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))};
   }
 }
 
 void EmitHorseMoves(const XqB& board, uint8_t from, XqP player,
-                    std::span<XqA> out, std::size_t& count) noexcept {
+                    std::span<XqA> out, size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   // 8 L-targets and the orthogonal-leg cell that must be empty.
   struct Move {
     int dr, dc, leg_dr, leg_dc;
   };
   static constexpr Move kMoves[] = {
-      {-2, -1, -1, 0},  {-2, 1, -1, 0},  {2, -1, 1, 0},  {2, 1, 1, 0},
-      {-1, -2, 0, -1},  {1, -2, 0, -1},  {-1, 2, 0, 1},  {1, 2, 0, 1},
+      {-2, -1, -1, 0}, {-2, 1, -1, 0}, {2, -1, 1, 0}, {2, 1, 1, 0},
+      {-1, -2, 0, -1}, {1, -2, 0, -1}, {-1, 2, 0, 1}, {1, 2, 0, 1},
   };
   for (const Move& m : kMoves) {
     const int tr = r + m.dr;
@@ -284,22 +284,22 @@ void EmitHorseMoves(const XqB& board, uint8_t from, XqP player,
     if (!InBounds(tr, tc)) continue;
     const int leg_r = r + m.leg_dr;
     const int leg_c = c + m.leg_dc;
-    if (board[Idx(static_cast<uint8_t>(leg_r),
-                  static_cast<uint8_t>(leg_c))] != kEmpty) {
+    if (board[Idx(static_cast<uint8_t>(leg_r), static_cast<uint8_t>(leg_c))] !=
+        kEmpty) {
       continue;
     }
-    if (IsOwnedBy(board[Idx(static_cast<uint8_t>(tr),
-                            static_cast<uint8_t>(tc))],
-                  player)) {
+    if (IsOwnedBy(
+            board[Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))],
+            player)) {
       continue;
     }
-    out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
-                                 static_cast<uint8_t>(tc))};
+    out[count++] =
+        XqA{from, Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))};
   }
 }
 
 void EmitChariotMoves(const XqB& board, uint8_t from, XqP player,
-                      std::span<XqA> out, std::size_t& count) noexcept {
+                      std::span<XqA> out, size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-1, 1, 0, 0};
   static constexpr int kDC[] = {0, 0, -1, 1};
@@ -307,15 +307,15 @@ void EmitChariotMoves(const XqB& board, uint8_t from, XqP player,
     int tr = r + kDR[dir];
     int tc = c + kDC[dir];
     while (InBounds(tr, tc)) {
-      const int8_t code = board[Idx(static_cast<uint8_t>(tr),
-                                    static_cast<uint8_t>(tc))];
+      const int8_t code =
+          board[Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))];
       if (code == kEmpty) {
-        out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
-                                     static_cast<uint8_t>(tc))};
+        out[count++] =
+            XqA{from, Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))};
       } else {
         if (!IsOwnedBy(code, player)) {
-          out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
-                                       static_cast<uint8_t>(tc))};
+          out[count++] = XqA{
+              from, Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))};
         }
         break;
       }
@@ -326,7 +326,7 @@ void EmitChariotMoves(const XqB& board, uint8_t from, XqP player,
 }
 
 void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
-                     std::span<XqA> out, std::size_t& count) noexcept {
+                     std::span<XqA> out, size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   static constexpr int kDR[] = {-1, 1, 0, 0};
   static constexpr int kDC[] = {0, 0, -1, 1};
@@ -335,11 +335,11 @@ void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
     int tr = r + kDR[dir];
     int tc = c + kDC[dir];
     while (InBounds(tr, tc)) {
-      const int8_t code = board[Idx(static_cast<uint8_t>(tr),
-                                    static_cast<uint8_t>(tc))];
+      const int8_t code =
+          board[Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))];
       if (code != kEmpty) break;
-      out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
-                                   static_cast<uint8_t>(tc))};
+      out[count++] =
+          XqA{from, Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))};
       tr += kDR[dir];
       tc += kDC[dir];
     }
@@ -348,12 +348,12 @@ void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
     tr += kDR[dir];
     tc += kDC[dir];
     while (InBounds(tr, tc)) {
-      const int8_t code = board[Idx(static_cast<uint8_t>(tr),
-                                    static_cast<uint8_t>(tc))];
+      const int8_t code =
+          board[Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))];
       if (code != kEmpty) {
         if (!IsOwnedBy(code, player)) {
-          out[count++] = XqA{from, Idx(static_cast<uint8_t>(tr),
-                                       static_cast<uint8_t>(tc))};
+          out[count++] = XqA{
+              from, Idx(static_cast<uint8_t>(tr), static_cast<uint8_t>(tc))};
         }
         break;
       }
@@ -364,7 +364,7 @@ void EmitCannonMoves(const XqB& board, uint8_t from, XqP player,
 }
 
 void EmitSoldierMoves(const XqB& board, uint8_t from, XqP player,
-                      std::span<XqA> out, std::size_t& count) noexcept {
+                      std::span<XqA> out, size_t& count) noexcept {
   const int r = Row(from), c = Col(from);
   const int forward = player ? -1 : 1;
   // Forward.
@@ -378,7 +378,7 @@ void EmitSoldierMoves(const XqB& board, uint8_t from, XqP player,
 }
 
 void EmitPseudoLegalMoves(const XqB& board, XqP player, std::span<XqA> out,
-                          std::size_t& count) noexcept {
+                          size_t& count) noexcept {
   count = 0;
   for (uint8_t cell = 0; cell < kBoardCells; ++cell) {
     const int8_t code = board[cell];
@@ -474,8 +474,8 @@ bool IsFlyingGenerals(const XqB& board) noexcept {
   const int top = Row(red_gen) < Row(blk_gen) ? Row(red_gen) : Row(blk_gen);
   const int bot = Row(red_gen) < Row(blk_gen) ? Row(blk_gen) : Row(red_gen);
   for (int r = top + 1; r < bot; ++r) {
-    if (board[Idx(static_cast<uint8_t>(r),
-                  static_cast<uint8_t>(col))] != kEmpty) {
+    if (board[Idx(static_cast<uint8_t>(r), static_cast<uint8_t>(col))] !=
+        kEmpty) {
       return false;
     }
   }

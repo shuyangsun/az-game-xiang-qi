@@ -27,9 +27,9 @@ instances by value.
 
 ### Required `static constexpr` members
 
-- `kHistoryLookback : std::size_t` — past states the serializer needs.
+- `kHistoryLookback : size_t` — past states the serializer needs.
   Markov games declare 0. See [history_lookback.md](./history_lookback.md).
-- `kPolicySize : std::size_t` — cardinality of the full action space,
+- `kPolicySize : size_t` — cardinality of the full action space,
   ignoring legality. Equals the network's policy-head width.
 - `kMaxRounds : std::optional<uint32_t>` — self-play hard cap. If set,
   `IsOver()` must return `true` once `CurrentRound() >= *kMaxRounds`.
@@ -37,18 +37,18 @@ instances by value.
 
 ### Required observers
 
-| Method | Returns |
-| --- | --- |
-| `GetBoard()` | `const board_t&` |
-| `CurrentRound()` | `uint32_t` |
-| `CurrentPlayer()` | `player_t` |
-| `LastPlayer()` | `std::optional<player_t>` (nullopt before any move) |
-| `LastAction()` | `std::optional<action_t>` (nullopt before any move) |
-| `CanonicalBoard()` | `board_t` from the current player's perspective |
-| `ValidActions()` | `std::vector<action_t>` — deterministic, no dupes |
-| `IsOver()` | `bool` |
-| `GetScore(player)` | `float` in `[-1, +1]` from `player`'s perspective |
-| `PolicyIndex(action)` | `std::size_t` in `[0, kPolicySize)`; bijection |
+| Method                | Returns                                             |
+| --------------------- | --------------------------------------------------- |
+| `GetBoard()`          | `const board_t&`                                    |
+| `CurrentRound()`      | `uint32_t`                                          |
+| `CurrentPlayer()`     | `player_t`                                          |
+| `LastPlayer()`        | `std::optional<player_t>` (nullopt before any move) |
+| `LastAction()`        | `std::optional<action_t>` (nullopt before any move) |
+| `CanonicalBoard()`    | `board_t` from the current player's perspective     |
+| `ValidActions()`      | `std::vector<action_t>` — deterministic, no dupes   |
+| `IsOver()`            | `bool`                                              |
+| `GetScore(player)`    | `float` in `[-1, +1]` from `player`'s perspective   |
+| `PolicyIndex(action)` | `size_t` in `[0, kPolicySize)`; bijection           |
 
 ### Required mutation primitives
 
@@ -104,11 +104,11 @@ When `augmenter = yes`:
   `XqAugmentation` enum in
   [augmentation.h](../include/xq/augmentation.h).
 - `IInferenceAugmenter<G>::Interpret(original, augmented, evals) ->
-  Evaluation` — combine per-variant evaluations back into one for
+Evaluation` — combine per-variant evaluations back into one for
   `original`, inverting whatever symmetry was applied so the returned
   probabilities align with `original.ValidActions()`.
 - `ITrainingAugmenter<G>::Augment(game, target) ->
-  std::vector<std::pair<G, TrainingTarget>>` — return every augmented
+std::vector<std::pair<G, TrainingTarget>>` — return every augmented
   `(game, target)` pair. The augmented `pi[i]` corresponds to the
   augmented game's `ValidActions()[i]`. `target.z` is preserved.
 

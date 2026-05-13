@@ -34,7 +34,7 @@ constexpr int8_t UnpackCaptured(uint8_t packed) noexcept {
 
 }  // namespace
 
-std::size_t XqGame::ValidActionsInto(
+size_t XqGame::ValidActionsInto(
     std::array<XqA, kMaxLegalActions>& out) const noexcept {
   if (IsOver()) return 0;
 
@@ -42,20 +42,20 @@ std::size_t XqGame::ValidActionsInto(
   // then filter in place for own-king safety and Flying General. The
   // compaction is safe because the write index never overtakes the
   // read index.
-  std::size_t pseudo_count = 0;
+  size_t pseudo_count = 0;
   EmitPseudoLegalMoves(board_, current_player_, std::span<XqA>(out),
                        pseudo_count);
 
   XqB scratch = board_;
-  std::size_t write = 0;
-  for (std::size_t i = 0; i < pseudo_count; ++i) {
+  size_t write = 0;
+  for (size_t i = 0; i < pseudo_count; ++i) {
     const XqA a = out[i];
     const int8_t captured = scratch[a.to];
     const int8_t mover = scratch[a.from];
     scratch[a.to] = mover;
     scratch[a.from] = 0;
-    const bool legal = !IsInCheck(scratch, current_player_) &&
-                       !IsFlyingGenerals(scratch);
+    const bool legal =
+        !IsInCheck(scratch, current_player_) && !IsFlyingGenerals(scratch);
     scratch[a.from] = mover;
     scratch[a.to] = captured;
     if (legal) out[write++] = a;
@@ -63,9 +63,9 @@ std::size_t XqGame::ValidActionsInto(
   return write;
 }
 
-std::size_t XqGame::PolicyIndex(const XqA& action) const noexcept {
-  return static_cast<std::size_t>(action.from) * kBoardCells +
-         static_cast<std::size_t>(action.to);
+size_t XqGame::PolicyIndex(const XqA& action) const noexcept {
+  return static_cast<size_t>(action.from) * kBoardCells +
+         static_cast<size_t>(action.to);
 }
 
 void XqGame::ApplyActionInPlace(const XqA& action) noexcept {
@@ -75,13 +75,11 @@ void XqGame::ApplyActionInPlace(const XqA& action) noexcept {
   // XOR-out the moving piece on `from` and the captured piece on `to`
   // (no-op if `to` was empty), then XOR-in the moving piece on `to`.
   if (mover != 0) {
-    position_hash_ ^=
-        kZobristPieceKeys[action.from][ZobristPieceIndex(mover)];
+    position_hash_ ^= kZobristPieceKeys[action.from][ZobristPieceIndex(mover)];
     position_hash_ ^= kZobristPieceKeys[action.to][ZobristPieceIndex(mover)];
   }
   if (captured != 0) {
-    position_hash_ ^=
-        kZobristPieceKeys[action.to][ZobristPieceIndex(captured)];
+    position_hash_ ^= kZobristPieceKeys[action.to][ZobristPieceIndex(captured)];
   }
   // Toggle side-to-move.
   position_hash_ ^= kZobristBlackToMove;
@@ -114,8 +112,7 @@ void XqGame::UndoLastAction() noexcept {
   // Reverse the Zobrist updates.
   position_hash_ ^= kZobristBlackToMove;
   if (captured != 0) {
-    position_hash_ ^=
-        kZobristPieceKeys[action.to][ZobristPieceIndex(captured)];
+    position_hash_ ^= kZobristPieceKeys[action.to][ZobristPieceIndex(captured)];
   }
   if (mover != 0) {
     position_hash_ ^= kZobristPieceKeys[action.to][ZobristPieceIndex(mover)];

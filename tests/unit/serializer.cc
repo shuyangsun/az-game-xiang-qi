@@ -1,3 +1,5 @@
+#include "include/xq/serializer.h"
+
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -7,7 +9,6 @@
 #include "gtest/gtest.h"
 #include "include/xq/game.h"
 #include "tests/unit/valid_actions.h"
-#include "include/xq/serializer.h"
 
 namespace az::game::xq {
 namespace {
@@ -18,9 +19,9 @@ using ::az::game::api::TrainingTarget;
 using GameHistory =
     RingBuffer<XqGame, std::array<XqGame, XqGame::kHistoryLookback>>;
 
-constexpr std::size_t kStateVectorLen =
-    static_cast<std::size_t>(15) * 90;  // 15 planes × 90 cells
-constexpr std::size_t kPolicyVectorLen = XqGame::kPolicySize + 1;
+constexpr size_t kStateVectorLen =
+    static_cast<size_t>(15) * 90;  // 15 planes × 90 cells
+constexpr size_t kPolicyVectorLen = XqGame::kPolicySize + 1;
 
 TEST(Serializer, FR_SER_FIXED_LEN_CurrentStateInitial) {
   const XqGame game;
@@ -68,7 +69,7 @@ TEST(Serializer, FR_SER_ENCODES_PLAYER_PlanesDifferAcrossPlayers) {
   ASSERT_EQ(red_in.size(), black_in.size());
   // The two encodings must differ — at minimum, the side-to-move plane.
   bool any_difference = false;
-  for (std::size_t i = 0; i < red_in.size(); ++i) {
+  for (size_t i = 0; i < red_in.size(); ++i) {
     if (red_in[i] != black_in[i]) {
       any_difference = true;
       break;
@@ -128,7 +129,7 @@ TEST(Serializer, FR_SER_POLICY_MASK_InvalidActionsZero) {
   for (const XqA& a : actions) {
     valid[game.PolicyIndex(a)] = true;
   }
-  for (std::size_t i = 0; i < XqGame::kPolicySize; ++i) {
+  for (size_t i = 0; i < XqGame::kPolicySize; ++i) {
     if (!valid[i]) {
       EXPECT_FLOAT_EQ(out[1 + i], 0.0F)
           << "Invalid action slot " << i << " must be zero, got " << out[1 + i];
@@ -146,14 +147,14 @@ TEST(Serializer, FR_SER_POLICY_MASK_ValidActionsScattered) {
   // Use distinct probabilities so we can verify the scatter location.
   std::vector<float> pi;
   pi.reserve(actions.size());
-  for (std::size_t i = 0; i < actions.size(); ++i) {
+  for (size_t i = 0; i < actions.size(); ++i) {
     pi.push_back(static_cast<float>(i + 1));
   }
   const TrainingTarget target{0.0F, pi};
   const XqSerializer serializer;
   const std::vector<float> out = serializer.SerializePolicyOutput(game, target);
-  for (std::size_t i = 0; i < actions.size(); ++i) {
-    const std::size_t slot = 1 + game.PolicyIndex(actions[i]);
+  for (size_t i = 0; i < actions.size(); ++i) {
+    const size_t slot = 1 + game.PolicyIndex(actions[i]);
     EXPECT_FLOAT_EQ(out[slot], pi[i]) << "Mismatch at slot " << slot;
   }
 }
@@ -168,10 +169,10 @@ TEST(Serializer, OwnPiecePlanesContainOnesAtOwnPiecePositions) {
   const XqSerializer serializer;
   const std::vector<float> nn_in =
       serializer.SerializeCurrentState(game, history.View());
-  const std::size_t plane_chariot = 4;  // Red Chariot = code 5
-  const std::size_t plane_size = 90;
-  EXPECT_FLOAT_EQ(nn_in[plane_chariot * plane_size + 0], 1.0F);   // (0, 0)
-  EXPECT_FLOAT_EQ(nn_in[plane_chariot * plane_size + 8], 1.0F);   // (0, 8)
+  const size_t plane_chariot = 4;  // Red Chariot = code 5
+  const size_t plane_size = 90;
+  EXPECT_FLOAT_EQ(nn_in[plane_chariot * plane_size + 0], 1.0F);  // (0, 0)
+  EXPECT_FLOAT_EQ(nn_in[plane_chariot * plane_size + 8], 1.0F);  // (0, 8)
   // Same plane should be 0 at non-chariot Red cells, e.g., (0, 4)
   // (Red General).
   EXPECT_FLOAT_EQ(nn_in[plane_chariot * plane_size + 4], 0.0F);
@@ -185,8 +186,8 @@ TEST(Serializer, OpponentPlanesShifted) {
   const XqSerializer serializer;
   const std::vector<float> nn_in =
       serializer.SerializeCurrentState(game, history.View());
-  const std::size_t plane = 7 + 4;
-  const std::size_t plane_size = 90;
+  const size_t plane = 7 + 4;
+  const size_t plane_size = 90;
   EXPECT_FLOAT_EQ(nn_in[plane * plane_size + 9 * 9 + 0], 1.0F);  // (9, 0)
   EXPECT_FLOAT_EQ(nn_in[plane * plane_size + 9 * 9 + 8], 1.0F);  // (9, 8)
   // Same plane should be 0 elsewhere (e.g., the Red Chariot squares).
@@ -202,8 +203,8 @@ TEST(Serializer, SideToMovePlaneIsAllOnesForRedAllZerosForBlack) {
       serializer.SerializeCurrentState(red_to_move, history.View());
   const std::vector<float> black =
       serializer.SerializeCurrentState(black_to_move, history.View());
-  const std::size_t base = 14 * 90;
-  for (std::size_t i = 0; i < 90; ++i) {
+  const size_t base = 14 * 90;
+  for (size_t i = 0; i < 90; ++i) {
     EXPECT_FLOAT_EQ(red[base + i], 1.0F)
         << "Side-to-move plane should be all 1.0 for Red.";
     EXPECT_FLOAT_EQ(black[base + i], 0.0F)
@@ -218,10 +219,10 @@ TEST(Serializer, NoCellHasMoreThanOnePieceTypePlaneSet) {
   const XqSerializer serializer;
   const std::vector<float> nn_in =
       serializer.SerializeCurrentState(game, history.View());
-  const std::size_t plane_size = 90;
-  for (std::size_t cell = 0; cell < 90; ++cell) {
+  const size_t plane_size = 90;
+  for (size_t cell = 0; cell < 90; ++cell) {
     int hits = 0;
-    for (std::size_t p = 0; p < 14; ++p) {
+    for (size_t p = 0; p < 14; ++p) {
       if (nn_in[p * plane_size + cell] == 1.0F) ++hits;
     }
     EXPECT_LE(hits, 1) << "Cell " << cell << " has multiple plane hits.";
@@ -236,7 +237,7 @@ TEST(Serializer, ConsistentLengthOnTerminalState) {
   const XqSerializer serializer;
   const std::vector<float> initial =
       serializer.SerializeCurrentState(game, history.View());
-  const std::size_t len = initial.size();
+  const size_t len = initial.size();
 
   for (int i = 0; i < 50; ++i) {
     if (game.IsOver()) break;

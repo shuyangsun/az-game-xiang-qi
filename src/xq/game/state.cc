@@ -20,16 +20,17 @@ using ::az::game::xq::internal::IsInCheck;
 // the first legal move it finds, rather than enumerating all of them.
 bool HasAnyLegalMove(const XqB& board, XqP player) noexcept {
   std::array<XqA, XqGame::kMaxLegalActions> pseudo{};
-  std::size_t pseudo_count = 0;
+  size_t pseudo_count = 0;
   EmitPseudoLegalMoves(board, player, std::span<XqA>(pseudo), pseudo_count);
   XqB scratch = board;
-  for (std::size_t i = 0; i < pseudo_count; ++i) {
+  for (size_t i = 0; i < pseudo_count; ++i) {
     const XqA& a = pseudo[i];
     const int8_t captured = scratch[a.to];
     const int8_t mover = scratch[a.from];
     scratch[a.to] = mover;
     scratch[a.from] = 0;
-    const bool legal = !IsInCheck(scratch, player) && !IsFlyingGenerals(scratch);
+    const bool legal =
+        !IsInCheck(scratch, player) && !IsFlyingGenerals(scratch);
     scratch[a.from] = mover;
     scratch[a.to] = captured;
     if (legal) return true;
@@ -41,9 +42,12 @@ bool HasAnyLegalMove(const XqB& board, XqP player) noexcept {
 
 XqB XqGame::CanonicalBoard() const noexcept {
   if (current_player_ == kRed) return board_;
-  XqB out = board_;
-  for (auto& cell : out) {
-    if (cell != 0) cell = static_cast<int8_t>(-cell);
+  XqB out{};
+  for (uint8_t r = 0; r < kBoardRows; ++r) {
+    for (uint8_t c = 0; c < kBoardCols; ++c) {
+      const int8_t cell = board_[(kBoardRows - 1 - r) * kBoardCols + c];
+      out[r * kBoardCols + c] = (cell != 0) ? static_cast<int8_t>(-cell) : 0;
+    }
   }
   return out;
 }

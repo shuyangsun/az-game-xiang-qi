@@ -1,3 +1,5 @@
+#include "include/xq/train.h"
+
 #include <cmath>
 #include <cstddef>
 #include <utility>
@@ -8,7 +10,6 @@
 #include "include/xq/augmentation.h"
 #include "include/xq/game.h"
 #include "tests/unit/valid_actions.h"
-#include "include/xq/train.h"
 
 namespace az::game::xq {
 namespace {
@@ -19,16 +20,14 @@ bool ApproxEqual(float a, float b) noexcept {
   constexpr float kAbs = 1e-5F;
   constexpr float kRel = 1e-4F;
   const float diff = std::fabs(a - b);
-  return diff <= kAbs ||
-         diff <= kRel * std::max(std::fabs(a), std::fabs(b));
+  return diff <= kAbs || diff <= kRel * std::max(std::fabs(a), std::fabs(b));
 }
 
 TrainingTarget UniformTarget(const XqGame& game, float z) {
   const std::vector<XqA> actions = ValidActions(game);
-  std::vector<float> pi(actions.size(),
-                        actions.empty()
-                            ? 0.0F
-                            : 1.0F / static_cast<float>(actions.size()));
+  std::vector<float> pi(
+      actions.size(),
+      actions.empty() ? 0.0F : 1.0F / static_cast<float>(actions.size()));
   return TrainingTarget{z, std::move(pi)};
 }
 
@@ -64,7 +63,7 @@ TEST(TrainingAugmenter,
   std::vector<float> pi;
   pi.reserve(orig_actions.size());
   float total = 0.0F;
-  for (std::size_t i = 0; i < orig_actions.size(); ++i) {
+  for (size_t i = 0; i < orig_actions.size(); ++i) {
     const float v = 1.0F / static_cast<float>(i + 2);
     pi.push_back(v);
     total += v;
@@ -101,7 +100,7 @@ TEST(TrainingAugmenter, IdentityVariantPiUnchanged) {
   if (!pi.empty()) {
     pi[0] = 0.5F;
     const float remaining = 0.5F;
-    for (std::size_t i = 1; i < pi.size(); ++i) {
+    for (size_t i = 1; i < pi.size(); ++i) {
       pi[i] = remaining / static_cast<float>(pi.size() - 1);
     }
   }
@@ -113,7 +112,7 @@ TEST(TrainingAugmenter, IdentityVariantPiUnchanged) {
   // result[0] is the identity per the documented convention.
   const auto& [identity_game, identity_target] = pairs.front();
   ASSERT_EQ(identity_target.pi.size(), pi.size());
-  for (std::size_t i = 0; i < pi.size(); ++i) {
+  for (size_t i = 0; i < pi.size(); ++i) {
     EXPECT_TRUE(ApproxEqual(identity_target.pi[i], pi[i]))
         << "Identity augmentation must keep pi[i] unchanged; pos=" << i;
   }

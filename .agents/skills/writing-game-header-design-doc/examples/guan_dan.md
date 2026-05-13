@@ -130,13 +130,13 @@ using GdB = GdBoard;
 namespace az::game::gd {
 
 // Markov: the network input only needs the current state.
-inline constexpr std::size_t kGdHistoryLookback = 0;
+inline constexpr size_t kGdHistoryLookback = 0;
 
 // Cardinality of the full action space (ignoring legality).
 // 13 ActionType * 16 KeyRank = 208 PackedTrick values; for the masked
 // scatter to work we just need a bijection into a fixed range. Reuse
 // PackedTrick as the slot id, padded to a power of two.
-inline constexpr std::size_t kGdPolicySize = 256;
+inline constexpr size_t kGdPolicySize = 256;
 
 // Cap to prevent infinite loops when an early-iteration network plays
 // itself. ~150 ply is well above any realistic Guan Dan match length.
@@ -162,8 +162,8 @@ class GdGame {
   using player_t = GdP;
   using error_t = GdError;
 
-  static constexpr std::size_t kHistoryLookback = kGdHistoryLookback;
-  static constexpr std::size_t kPolicySize = kGdPolicySize;
+  static constexpr size_t kHistoryLookback = kGdHistoryLookback;
+  static constexpr size_t kPolicySize = kGdPolicySize;
   static constexpr std::optional<uint32_t> kMaxRounds = kGdMaxRounds;
 
   // Public constructors (value semantics).

@@ -8,8 +8,8 @@
 namespace az::game::xq {
 namespace {
 
-constexpr std::size_t Cell(uint8_t row, uint8_t col) noexcept {
-  return static_cast<std::size_t>(row) * kBoardCols + col;
+constexpr size_t Cell(uint8_t row, uint8_t col) noexcept {
+  return static_cast<size_t>(row) * kBoardCols + col;
 }
 
 TEST(GameState, CanonicalBoardForRedReturnsLiveBoard) {
@@ -19,20 +19,25 @@ TEST(GameState, CanonicalBoardForRedReturnsLiveBoard) {
   EXPECT_EQ(game.CanonicalBoard(), game.GetBoard());
 }
 
-TEST(GameState, CanonicalBoardForBlackNegatesEveryPiece) {
+TEST(GameState, CanonicalBoardForBlackNegatesAndFlipsBoard) {
   const XqGame game(kBlack);
   const XqB& live = game.GetBoard();
   const XqB canonical = game.CanonicalBoard();
-  for (std::size_t i = 0; i < live.size(); ++i) {
-    EXPECT_EQ(canonical[i], static_cast<int8_t>(-live[i]))
-        << "Cell index " << i;
+  for (uint8_t r = 0; r < kBoardRows; ++r) {
+    for (uint8_t c = 0; c < kBoardCols; ++c) {
+      const size_t canon_idx = static_cast<size_t>(r) * kBoardCols + c;
+      const size_t live_idx =
+          static_cast<size_t>(kBoardRows - 1 - r) * kBoardCols + c;
+      EXPECT_EQ(canonical[canon_idx], static_cast<int8_t>(-live[live_idx]))
+          << "Row " << +r << " col " << +c;
+    }
   }
 }
 
 TEST(GameState, CanonicalBoardLeavesEmptyCellsUnchanged) {
   const XqGame game(kBlack);
   const XqB canonical = game.CanonicalBoard();
-  for (std::size_t i = 0; i < canonical.size(); ++i) {
+  for (size_t i = 0; i < canonical.size(); ++i) {
     if (game.GetBoard()[i] == 0) {
       EXPECT_EQ(canonical[i], 0);
     }
@@ -106,14 +111,9 @@ TEST(GameState, FR_CHECKMATE_LOSS_BackRankMate) {
   // Red General trapped at (0, 4): Black Chariots on cols 3, 4, 5
   // attack the entire neighborhood, no Red pieces can interpose.
   const XqGame game = term_helpers::BuildPosition(
-      {{{0, 4}, 1},
-       {{9, 4}, -1},
-       {{5, 4}, -5},
-       {{5, 3}, -5},
-       {{5, 5}, -5}},
+      {{{0, 4}, 1}, {{9, 4}, -1}, {{5, 4}, -5}, {{5, 3}, -5}, {{5, 5}, -5}},
       kRed);
-  EXPECT_TRUE(game.IsOver())
-      << "A checkmate position must terminate the game.";
+  EXPECT_TRUE(game.IsOver()) << "A checkmate position must terminate the game.";
   EXPECT_FLOAT_EQ(game.GetScore(kRed), -1.0F);
   EXPECT_FLOAT_EQ(game.GetScore(kBlack), 1.0F);
   EXPECT_TRUE(ValidActions(game).empty());
@@ -128,8 +128,8 @@ TEST(GameState, FR_STALEMATE_LOSS_NoLegalMovesNotInCheck) {
        {{9, 4}, -1},
        {{1, 3}, -5},
        {{1, 5}, -5},
-       {{5, 4}, 1},      // Friendly Soldier blocking col 4 from Black Chariot
-       {{2, 4}, -5}},    // Black Chariot on col 4 attacks (1, 4) only.
+       {{5, 4}, 1},    // Friendly Soldier blocking col 4 from Black Chariot
+       {{2, 4}, -5}},  // Black Chariot on col 4 attacks (1, 4) only.
       kRed);
   // Either the position is stalemate or checkmate — both score the
   // side-to-move at -1 in this implementation. We pin the win for
@@ -209,11 +209,7 @@ TEST(GameState, FR_TERM_PRIORITY_CheckmateBeatsMaxRounds) {
   // (loser = side-to-move = -1, winner = +1), not the max-rounds
   // draw (0, 0).
   const XqGame game = term_helpers::BuildPosition(
-      {{{0, 4}, 1},
-       {{9, 4}, -1},
-       {{5, 4}, -5},
-       {{5, 3}, -5},
-       {{5, 5}, -5}},
+      {{{0, 4}, 1}, {{9, 4}, -1}, {{5, 4}, -5}, {{5, 3}, -5}, {{5, 5}, -5}},
       kRed,
       /*round=*/*XqGame::kMaxRounds);
   EXPECT_TRUE(game.IsOver());

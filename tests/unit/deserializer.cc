@@ -1,13 +1,14 @@
+#include "include/xq/deserializer.h"
+
 #include <cmath>
 #include <cstddef>
 #include <vector>
 
 #include "alpha-zero-api/policy_output.h"
 #include "gtest/gtest.h"
-#include "include/xq/deserializer.h"
 #include "include/xq/game.h"
-#include "tests/unit/valid_actions.h"
 #include "include/xq/serializer.h"
+#include "tests/unit/valid_actions.h"
 
 namespace az::game::xq {
 namespace {
@@ -15,14 +16,13 @@ namespace {
 using ::az::game::api::Evaluation;
 using ::az::game::api::TrainingTarget;
 
-constexpr std::size_t kPolicyVectorLen = XqGame::kPolicySize + 1;
+constexpr size_t kPolicyVectorLen = XqGame::kPolicySize + 1;
 
 bool ApproxEqual(float a, float b) noexcept {
   constexpr float kAbs = 1e-5F;
   constexpr float kRel = 1e-4F;
   const float diff = std::fabs(a - b);
-  return diff <= kAbs ||
-         diff <= kRel * std::max(std::fabs(a), std::fabs(b));
+  return diff <= kAbs || diff <= kRel * std::max(std::fabs(a), std::fabs(b));
 }
 
 TEST(Deserializer, FR_DES_WRONG_SIZE_RejectsTooShort) {
@@ -86,14 +86,14 @@ TEST(Deserializer, FR_DES_PARALLEL_GathersByPolicyIndex) {
   // Write distinct values into each valid policy slot; expect the
   // deserializer to gather them in `ValidActions()` order.
   std::vector<float> output(kPolicyVectorLen, 0.0F);
-  for (std::size_t i = 0; i < actions.size(); ++i) {
+  for (size_t i = 0; i < actions.size(); ++i) {
     output[1 + game.PolicyIndex(actions[i])] = static_cast<float>(i + 1);
   }
   const XqDeserializer deserializer;
   const auto result = deserializer.Deserialize(game, output);
   ASSERT_TRUE(result.has_value());
   ASSERT_EQ(result->probabilities.size(), actions.size());
-  for (std::size_t i = 0; i < actions.size(); ++i) {
+  for (size_t i = 0; i < actions.size(); ++i) {
     EXPECT_FLOAT_EQ(result->probabilities[i], static_cast<float>(i + 1))
         << "Mismatch at slot " << i;
   }
@@ -111,7 +111,7 @@ TEST(Deserializer, FR_DES_ROUNDTRIP_RecoversValueAndProbabilities) {
   // Build a probability distribution with distinct values so the
   // roundtrip catches any swap or drop.
   float running_sum = 0.0F;
-  for (std::size_t i = 0; i < actions.size(); ++i) {
+  for (size_t i = 0; i < actions.size(); ++i) {
     pi.push_back(1.0F / static_cast<float>(actions.size() + i));
     running_sum += pi.back();
   }
@@ -128,7 +128,7 @@ TEST(Deserializer, FR_DES_ROUNDTRIP_RecoversValueAndProbabilities) {
   ASSERT_TRUE(recovered.has_value());
   EXPECT_TRUE(ApproxEqual(recovered->value, target.z));
   ASSERT_EQ(recovered->probabilities.size(), pi.size());
-  for (std::size_t i = 0; i < pi.size(); ++i) {
+  for (size_t i = 0; i < pi.size(); ++i) {
     EXPECT_TRUE(ApproxEqual(recovered->probabilities[i], pi[i]))
         << "Probability mismatch at index " << i << ": "
         << recovered->probabilities[i] << " != " << pi[i];
