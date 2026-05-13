@@ -231,14 +231,37 @@ class XqGame {
    * perspective.
    *
    * Returns a copy of the board where the current player's pieces
-   * are positive and the opponent's are negative. If Red is to
-   * move, the board is returned unchanged (Red is already +); if
-   * Black is to move, every non-zero cell is negated. Geometric
-   * orientation is left untouched — board rotation / mirror is the
-   * augmenter's responsibility (see `XqInferenceAugmenter` and
-   * `XqTrainingAugmenter`).
+   * are positive and the opponent's are negative AND the board is
+   * vertically flipped so own pieces always occupy rows `0..4`. If
+   * Red is to move, the board is returned unchanged (Red is already
+   * + and on top); if Black is to move, every non-zero cell is
+   * negated and the board is mirrored across the horizontal center
+   * (`r → kBoardRows - 1 - r`). Left-right (file) augmentation is
+   * still the augmenter's job (`XqInferenceAugmenter` /
+   * `XqTrainingAugmenter`) — only the vertical perspective flip
+   * lives here.
+   *
+   * Pairs with `CanonicalAction` so policy slots written by
+   * `XqSerializer` live in the same canonical frame as the board
+   * input.
    */
   [[nodiscard]] XqB CanonicalBoard() const noexcept;
+
+  /**
+   * @brief Canonical-frame remapping of an `(from, to)` action.
+   *
+   * Returns the action expressed in the same coordinate frame as
+   * `CanonicalBoard()`. For Red, this is the identity. For Black,
+   * each cell is vertically flipped (`r → kBoardRows - 1 - r`,
+   * column unchanged), matching the board flip applied by
+   * `CanonicalBoard()`. The mapping is self-inverse — calling it
+   * twice returns the original action.
+   *
+   * `XqSerializer` and `XqDeserializer` both index policy slots via
+   * `PolicyIndex(CanonicalAction(a))` so the model sees consistent
+   * canonical-frame input and output regardless of side to move.
+   */
+  [[nodiscard]] XqA CanonicalAction(const XqA& action) const noexcept;
 
   /**
    * @brief Write all legal moves for the current player into

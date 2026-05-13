@@ -59,9 +59,14 @@ std::vector<float> XqSerializer::SerializePolicyOutput(
     const XqGame& game,
     const ::az::game::api::TrainingTarget& target) const noexcept {
   // Canonical layout shared with `XqDeserializer`:
-  //   out[0]                     = target.z
-  //   out[1 + PolicyIndex(a_i)]  = target.pi[i]   for actions[i] = a_i
-  //   other slots                = 0
+  //   out[0]                                       = target.z
+  //   out[1 + PolicyIndex(CanonicalAction(a_i))]   = target.pi[i]
+  //   other slots                                  = 0
+  //
+  // Slots live in the same canonical frame as `CanonicalBoard()`, so
+  // Red and Black share the policy-head row that encodes the same
+  // canonical move (e.g., "own piece at canonical cell X advances to
+  // cell Y"), rather than indexing into disjoint halves of W_head.
   std::vector<float> out(XqGame::kPolicySize + 1, 0.0F);
   out[0] = target.z;
 
@@ -69,7 +74,7 @@ std::vector<float> XqSerializer::SerializePolicyOutput(
   const size_t count = game.ValidActionsInto(actions);
   const size_t n = std::min(count, target.pi.size());
   for (size_t i = 0; i < n; ++i) {
-    const size_t slot = 1 + game.PolicyIndex(actions[i]);
+    const size_t slot = 1 + game.PolicyIndex(game.CanonicalAction(actions[i]));
     if (slot < out.size()) {
       out[slot] = target.pi[i];
     }

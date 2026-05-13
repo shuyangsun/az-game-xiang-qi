@@ -154,8 +154,44 @@ TEST(Serializer, FR_SER_POLICY_MASK_ValidActionsScattered) {
   const XqSerializer serializer;
   const std::vector<float> out = serializer.SerializePolicyOutput(game, target);
   for (size_t i = 0; i < actions.size(); ++i) {
-    const size_t slot = 1 + game.PolicyIndex(actions[i]);
+    const size_t slot = 1 + game.PolicyIndex(game.CanonicalAction(actions[i]));
     EXPECT_FLOAT_EQ(out[slot], pi[i]) << "Mismatch at slot " << slot;
+  }
+}
+
+// The slot indexing must use the canonical frame: for Black to move,
+// scattered probabilities must land at `PolicyIndex(CanonicalAction(a))`,
+// NOT at `PolicyIndex(a)` (those would correspond to live-frame
+// indexing and break Red↔Black weight sharing in the policy head).
+TEST(Serializer, FR_SER_POLICY_SLOTS_AreCanonicalFrameForBlack) {
+  const XqGame game(kBlack);
+  const std::vector<XqA> actions = ValidActions(game);
+  if (actions.empty()) {
+    GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
+                    "GAME-ACTION-IMPL is in.";
+  }
+  std::vector<float> pi;
+  pi.reserve(actions.size());
+  for (size_t i = 0; i < actions.size(); ++i) {
+    pi.push_back(static_cast<float>(i + 1));
+  }
+  const TrainingTarget target{0.0F, pi};
+  const XqSerializer serializer;
+  const std::vector<float> out = serializer.SerializePolicyOutput(game, target);
+
+  for (size_t i = 0; i < actions.size(); ++i) {
+    const size_t canonical_slot =
+        1 + game.PolicyIndex(game.CanonicalAction(actions[i]));
+    const size_t live_slot = 1 + game.PolicyIndex(actions[i]);
+    EXPECT_FLOAT_EQ(out[canonical_slot], pi[i])
+        << "Black probability not at canonical-frame slot " << canonical_slot;
+    // Live-frame slot would be wrong here. Only require strict inequality
+    // when the two slots actually differ (i.e., not a palindromic action
+    // that maps to itself under vertical flip).
+    if (canonical_slot != live_slot) {
+      EXPECT_FLOAT_EQ(out[live_slot], 0.0F)
+          << "Black probability leaked into live-frame slot " << live_slot;
+    }
   }
 }
 

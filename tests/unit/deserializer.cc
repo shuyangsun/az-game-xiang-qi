@@ -87,7 +87,34 @@ TEST(Deserializer, FR_DES_PARALLEL_GathersByPolicyIndex) {
   // deserializer to gather them in `ValidActions()` order.
   std::vector<float> output(kPolicyVectorLen, 0.0F);
   for (size_t i = 0; i < actions.size(); ++i) {
-    output[1 + game.PolicyIndex(actions[i])] = static_cast<float>(i + 1);
+    output[1 + game.PolicyIndex(game.CanonicalAction(actions[i]))] =
+        static_cast<float>(i + 1);
+  }
+  const XqDeserializer deserializer;
+  const auto result = deserializer.Deserialize(game, output);
+  ASSERT_TRUE(result.has_value());
+  ASSERT_EQ(result->probabilities.size(), actions.size());
+  for (size_t i = 0; i < actions.size(); ++i) {
+    EXPECT_FLOAT_EQ(result->probabilities[i], static_cast<float>(i + 1))
+        << "Mismatch at slot " << i;
+  }
+}
+
+// Black variant: the deserializer must read from canonical-frame slots,
+// not live-frame slots. Writing distinct values into the
+// `PolicyIndex(CanonicalAction(a))` slots and gathering must recover
+// them in `ValidActions()` order.
+TEST(Deserializer, FR_DES_PARALLEL_GathersByCanonicalSlotForBlack) {
+  const XqGame game(kBlack);
+  const std::vector<XqA> actions = ValidActions(game);
+  if (actions.empty()) {
+    GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
+                    "GAME-ACTION-IMPL is in.";
+  }
+  std::vector<float> output(kPolicyVectorLen, 0.0F);
+  for (size_t i = 0; i < actions.size(); ++i) {
+    output[1 + game.PolicyIndex(game.CanonicalAction(actions[i]))] =
+        static_cast<float>(i + 1);
   }
   const XqDeserializer deserializer;
   const auto result = deserializer.Deserialize(game, output);

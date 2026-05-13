@@ -44,6 +44,61 @@ TEST(GameState, CanonicalBoardLeavesEmptyCellsUnchanged) {
   }
 }
 
+TEST(GameState, CanonicalActionForRedIsIdentity) {
+  const XqGame game;  // Red to move.
+  const XqA a{Cell(3, 4), Cell(5, 4)};
+  const XqA canonical = game.CanonicalAction(a);
+  EXPECT_EQ(canonical.from, a.from);
+  EXPECT_EQ(canonical.to, a.to);
+}
+
+TEST(GameState, CanonicalActionForBlackVerticallyFlipsCells) {
+  const XqGame game(kBlack);
+  // (row 7, col 1) and (row 6, col 1) — pick a non-palindromic row pair
+  // so the flip is observable.
+  const XqA a{Cell(7, 1), Cell(6, 1)};
+  const XqA canonical = game.CanonicalAction(a);
+  // Vertical flip: r → kBoardRows - 1 - r.
+  EXPECT_EQ(canonical.from, Cell(kBoardRows - 1 - 7, 1));
+  EXPECT_EQ(canonical.to, Cell(kBoardRows - 1 - 6, 1));
+  // Columns must not change.
+  EXPECT_EQ(canonical.from % kBoardCols, 1);
+  EXPECT_EQ(canonical.to % kBoardCols, 1);
+}
+
+TEST(GameState, CanonicalActionIsSelfInverseForBlack) {
+  const XqGame game(kBlack);
+  const XqA a{Cell(7, 3), Cell(4, 8)};
+  const XqA round_trip = game.CanonicalAction(game.CanonicalAction(a));
+  EXPECT_EQ(round_trip.from, a.from);
+  EXPECT_EQ(round_trip.to, a.to);
+}
+
+// A canonical "own piece advances one row" move must land in the same
+// policy slot whether the side to move is Red or Black. This is the
+// whole point of `CanonicalAction`: Red and Black share the policy
+// head's row for the same canonical move.
+TEST(GameState, CanonicalActionShareSlotAcrossSides) {
+  const XqGame red;          // Red to move; "own" at top (rows 0..4).
+  const XqGame black(kBlack); // Black to move; "own" at bottom (rows 5..9).
+
+  // Red advances an own piece from row 3 col 4 to row 4 col 4.
+  const XqA red_a{Cell(3, 4), Cell(4, 4)};
+  const size_t red_slot = red.PolicyIndex(red.CanonicalAction(red_a));
+
+  // Black's equivalent canonical move: Black's "own" is at rows 5..9
+  // (live). After vertical flip, "own" sits at canonical rows 0..4 —
+  // the same rows Red occupies. So Black's live move "(row 6 col 4) →
+  // (row 5 col 4)" canonicalizes to (row 3 col 4) → (row 4 col 4),
+  // the same canonical slot as Red's move above.
+  const XqA black_a{Cell(6, 4), Cell(5, 4)};
+  const size_t black_slot =
+      black.PolicyIndex(black.CanonicalAction(black_a));
+
+  EXPECT_EQ(red_slot, black_slot)
+      << "Red slot=" << red_slot << " black slot=" << black_slot;
+}
+
 TEST(GameState, FR_TERM_PRIORITY_IsOverFalseAtStart) {
   const XqGame game;
   EXPECT_FALSE(game.IsOver());

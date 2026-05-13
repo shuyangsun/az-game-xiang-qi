@@ -52,6 +52,16 @@ XqB XqGame::CanonicalBoard() const noexcept {
   return out;
 }
 
+XqA XqGame::CanonicalAction(const XqA& action) const noexcept {
+  if (current_player_ == kRed) return action;
+  const auto flip = [](uint8_t cell) -> uint8_t {
+    const uint8_t r = cell / kBoardCols;
+    const uint8_t c = cell % kBoardCols;
+    return static_cast<uint8_t>((kBoardRows - 1 - r) * kBoardCols + c);
+  };
+  return XqA{flip(action.from), flip(action.to)};
+}
+
 bool XqGame::IsOver() const noexcept {
   // Termination priority — see
   // memory/game_rules_details/termination.md:
