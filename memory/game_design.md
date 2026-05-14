@@ -149,11 +149,12 @@ validate; the engine guarantees only valid actions.
   matches the serializer; size validation rejects vectors whose
   length is not `kPolicySize + 1`.
 - **Compact serializer / deserializer**: transformer-oriented input
-  of 299 floats — 90 raw signed piece codes from `CanonicalBoard()`,
-  one repeat-counter scalar (1..3), then 104 `(from, to)` legal-action
-  slots sorted by canonical `(from, to)`. Padding slots use the
-  `XqA{90, 90}` "no action" sentinel. The deserializer pairs the
-  policy row with these same slots via `CompactPolicyTargetBlob` /
+  of 390 floats laid out as `195 tokens * 2 features` — 90 board-cell
+  tokens `[piece_code, 0]` from `CanonicalBoard()`, one repeat-counter
+  token `[count, 0]` (1..3), then 104 legal-action tokens
+  `[from, to]` sorted by canonical `(from, to)`. Padding action tokens
+  use the `XqA{90, 90}` "no action" sentinel. The deserializer pairs
+  the policy row with these same tokens via `CompactPolicyTargetBlob` /
   `CompactPolicyOutputBlob`. The slot ordering is fixed at the API
   contract level — see [api_contract.md](./api_contract.md) and
   [game_design_details/action_encoding.md](./game_design_details/action_encoding.md).

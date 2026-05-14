@@ -24,13 +24,17 @@ constexpr size_t kStateVectorLen =
     kDenseStateFeatureSize;  // 15 planes × 90 cells
 constexpr size_t kPolicyVectorLen = XqGame::kPolicySize + 1;
 
-// Compact-input offsets used by the new transformer-oriented layout.
-//   [0 .. kBoardCells)                       : board tokens (signed int8)
-//   [kBoardCells]                            : repeat counter
-//   [kBoardCells + 1 ..]                     : 104 (from, to) action slots
-constexpr size_t kCompactRepeatCounterOffset = kCompactBoardFeatureSize;
+// Compact-input float-index offsets used by the new transformer-oriented
+// layout. The state vector is 195 tokens of width 2:
+//   tokens 0..89        : board tokens   [piece_code, 0]
+//   token  90           : repeat counter [repeat_count, 0]
+//   tokens 91..194      : action slots   [from, to]
+constexpr size_t kCompactBoardRowOffset =
+    kCompactBoardTokenOffset * kCompactTokenFeatureWidth;
+constexpr size_t kCompactRepeatCounterOffset =
+    kCompactRepeatTokenOffset * kCompactTokenFeatureWidth;
 constexpr size_t kCompactActionRowOffset =
-    kCompactBoardFeatureSize + kCompactRepeatCounterSize;
+    kCompactActionTokenOffset * kCompactTokenFeatureWidth;
 
 struct ExpectedCompactAction {
   size_t policy_index;
@@ -247,16 +251,18 @@ TEST(CompactSerializer, FR_SER_COMPACT_MAX_LEGAL_ACTIONS_IsTightBound) {
   EXPECT_EQ(XqGame::kMaxLegalActions, static_cast<size_t>(104));
 }
 
-TEST(CompactSerializer, FR_SER_COMPACT_INPUT_LEN_IsFixed299) {
+TEST(CompactSerializer, FR_SER_COMPACT_INPUT_LEN_IsFixed390) {
   const XqGame game;
   const GameHistory history;
   const XqCompactSerializer serializer;
   const std::vector<float> compact =
       serializer.SerializeCurrentState(game, history.View());
-  // 90 board tokens + 1 repeat counter + 104 (from, to) slots = 299.
+  // 195 tokens of width 2 = 390 floats: 90 board tokens [piece, 0] +
+  // 1 repeat token [count, 0] + 104 action tokens [from, to].
+  ASSERT_EQ(kCompactStateTokenCount,
+            kBoardCells + 1 + XqGame::kMaxLegalActions);
   ASSERT_EQ(kCompactStateFeatureSize,
-            kCompactBoardFeatureSize + kCompactRepeatCounterSize +
-                kCompactActionFeatureWidth * XqGame::kMaxLegalActions);
+            kCompactStateTokenCount * kCompactTokenFeatureWidth);
   EXPECT_EQ(compact.size(), kCompactStateFeatureSize);
 }
 
@@ -270,9 +276,13 @@ TEST(CompactSerializer, FR_SER_COMPACT_BOARD_TokensAreCanonicalSignedCodes) {
   const XqB canonical = game.CanonicalBoard();
   ASSERT_EQ(compact.size(), kCompactStateFeatureSize);
   for (size_t cell = 0; cell < kBoardCells; ++cell) {
-    EXPECT_FLOAT_EQ(compact[cell], static_cast<float>(canonical[cell]))
-        << "Board token at cell " << cell
+    const size_t slot =
+        kCompactBoardRowOffset + cell * kCompactTokenFeatureWidth;
+    EXPECT_FLOAT_EQ(compact[slot], static_cast<float>(canonical[cell]))
+        << "Board token feature 0 at cell " << cell
         << " must equal the canonical signed piece code.";
+    EXPECT_FLOAT_EQ(compact[slot + 1], 0.0F)
+        << "Board token feature 1 at cell " << cell << " must be the zero pad.";
   }
 }
 
@@ -284,6 +294,8 @@ TEST(CompactSerializer, FR_SER_COMPACT_REPEAT_StartsAtOne) {
       serializer.SerializeCurrentState(game, history.View());
   ASSERT_EQ(compact.size(), kCompactStateFeatureSize);
   EXPECT_FLOAT_EQ(compact[kCompactRepeatCounterOffset], 1.0F);
+  EXPECT_FLOAT_EQ(compact[kCompactRepeatCounterOffset + 1], 0.0F)
+      << "Repeat-counter token feature 1 must be the zero pad.";
 }
 
 TEST(CompactSerializer, FR_SER_COMPACT_REPEAT_IncrementsOnReturnToStart) {
@@ -337,7 +349,7 @@ TEST(CompactSerializer, FR_SER_COMPACT_ACTIONS_SortedByCanonicalFromTo) {
   const float pad = static_cast<float>(kBoardCells);
   for (size_t i = 0; i < expected.size(); ++i) {
     const size_t slot =
-        kCompactActionRowOffset + i * kCompactActionFeatureWidth;
+        kCompactActionRowOffset + i * kCompactTokenFeatureWidth;
     EXPECT_FLOAT_EQ(compact[slot], expected[i].from_feature);
     EXPECT_FLOAT_EQ(compact[slot + 1], expected[i].to_feature);
     if (i > 0) {
@@ -346,7 +358,7 @@ TEST(CompactSerializer, FR_SER_COMPACT_ACTIONS_SortedByCanonicalFromTo) {
   }
   for (size_t i = expected.size(); i < XqGame::kMaxLegalActions; ++i) {
     const size_t slot =
-        kCompactActionRowOffset + i * kCompactActionFeatureWidth;
+        kCompactActionRowOffset + i * kCompactTokenFeatureWidth;
     EXPECT_FLOAT_EQ(compact[slot], pad);
     EXPECT_FLOAT_EQ(compact[slot + 1], pad);
   }

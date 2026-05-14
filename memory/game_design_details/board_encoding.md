@@ -70,24 +70,34 @@ The encoding is computed on top of `CanonicalBoard()` so the
 
 The compact state serializer (`XqCompactSerializer`) skips the
 one-hot plane expansion and emits a flat float vector of length
-`kCompactStateFeatureSize = 90 + 1 + 2 * 104 = 299`. The consuming
-network is expected to learn its own per-piece and per-cell
-embeddings; the serializer's job is to deliver the raw signal.
+`kCompactStateFeatureSize = kCompactStateTokenCount *
+kCompactTokenFeatureWidth = 195 * 2 = 390`. The consuming network
+is expected to learn its own per-piece and per-cell embeddings; the
+serializer's job is to deliver the raw signal as a uniform sequence
+of tokens.
 
-Layout (concatenated in this exact order):
+Layout — 195 tokens, each `kCompactTokenFeatureWidth = 2` floats
+wide, written back-to-back (token `i` occupies floats
+`[2 * i, 2 * i + 2)`):
 
-1. **Board tokens** — `kBoardCells = 90` floats. `out[cell]` is the
-   signed `int8_t` cell value of `CanonicalBoard()` cast to `float`,
-   so values lie in `{-7, -6, ..., -1, 0, +1, ..., +7}`. Positive
-   magnitudes are the current player's pieces; the sign comes from
-   `CanonicalBoard()`, not from a separate side-to-move feature.
-2. **Repeat counter** — `1` float. `XqGame::CurrentPositionRepeatCount()`,
-   clamped to `[1, 3]`, so the network can see proximity to the
-   threefold-repetition draw without observing past states directly.
-3. **Legal-action slots** — `104 * 2 = 208` floats. Two values per
-   slot: `(from, to)` as canonical cell indices in `[0, 90)`. Real
-   slots are sorted by canonical `(from, to)` ascending. Padding
-   slots use the `XqA{90, 90}` "no action" sentinel
+1. **Board tokens** — tokens `0 .. 89` (one per cell). Feature 0
+   is the signed `int8_t` cell value of `CanonicalBoard()` cast to
+   `float`, so values lie in `{-7, -6, ..., -1, 0, +1, ..., +7}`.
+   Positive magnitudes are the current player's pieces; the sign
+   comes from `CanonicalBoard()`, not from a separate side-to-move
+   feature. Feature 1 is a `0.0` pad so the token width matches the
+   legal-action tokens.
+2. **Repeat-counter token** — token `90`. Feature 0 is
+   `XqGame::CurrentPositionRepeatCount()`, clamped to `[1, 3]`, so
+   the network can see proximity to the threefold-repetition draw
+   without observing past states directly. Feature 1 is a `0.0`
+   pad. The token's distinct sequence position lets the
+   transformer's positional embedding distinguish it from a board
+   cell that happens to carry the same scalar value.
+3. **Legal-action tokens** — tokens `91 .. 194`. Two values per
+   token: `(from, to)` as canonical cell indices in `[0, 90)`. Real
+   tokens are sorted by canonical `(from, to)` ascending. Padding
+   tokens use the `XqA{90, 90}` "no action" sentinel
    (`from = to = 90.0`); see `action_encoding.md` for the contract.
 
 No positional embedding or spatial-structure hint is included — the

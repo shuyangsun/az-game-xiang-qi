@@ -100,14 +100,21 @@ void AppendCompactActionFeatures(const XqGame& game,
 
 void AppendCompactBoardTokens(const XqGame& game,
                               std::vector<float>& out) noexcept {
+  // One token per board cell, width = kCompactTokenFeatureWidth. Feature
+  // 0 carries the signed piece code; feature 1 is a zero pad so the
+  // token width matches the legal-action `(from, to)` tokens.
   const XqB canonical = game.CanonicalBoard();
   for (size_t cell = 0; cell < kBoardCells; ++cell) {
     out.push_back(static_cast<float>(canonical[cell]));
+    out.push_back(0.0F);
   }
 }
 
 void AppendRepeatCounter(const XqGame& game, std::vector<float>& out) noexcept {
+  // Single token: feature 0 holds the repeat count, feature 1 is a zero
+  // pad to keep `kCompactTokenFeatureWidth` uniform across the sequence.
   out.push_back(static_cast<float>(game.CurrentPositionRepeatCount()));
+  out.push_back(0.0F);
 }
 
 }  // namespace
@@ -149,12 +156,13 @@ std::vector<float> XqSerializer::SerializePolicyOutput(
 std::vector<float> XqCompactSerializer::SerializeCurrentState(
     const XqGame& game,
     ::az::game::api::RingBufferView<XqGame> /*history*/) const noexcept {
-  // Markov game: history view is unused. The compact layout is the
-  // concatenation of:
-  //   [board: kBoardCells raw signed piece codes from CanonicalBoard()]
-  //   [repeat_count: CurrentPositionRepeatCount() clamped to 1..3]
-  //   [action_slots: (from, to) per slot, sorted by canonical (from, to);
-  //                  padding slots use {kBoardCells, kBoardCells} sentinel]
+  // Markov game: history view is unused. The compact layout is a flat
+  // concatenation of `kCompactStateTokenCount = 195` tokens, each
+  // `kCompactTokenFeatureWidth = 2` floats wide:
+  //   tokens 0..89  : board cells,   [piece_code, 0]
+  //   token  90     : repeat counter, [repeat_count, 0]
+  //   tokens 91..194: action slots,  [from, to]; padding slots use
+  //                                   {kBoardCells, kBoardCells} sentinel.
   std::vector<float> out;
   out.reserve(kCompactStateFeatureSize);
   AppendCompactBoardTokens(game, out);

@@ -15,19 +15,35 @@ inline constexpr size_t kStateFeaturePlanes = 15;
 inline constexpr size_t kDenseStateFeatureSize =
     kStateFeaturePlanes * kBoardCells;
 
-// Compact (transformer-oriented) state layout. The state vector is the
-// concatenation of:
-//   [board: kBoardCells floats] [repeat_count: 1 float]
-//   [action_slots: kMaxLegalActions * kCompactActionFeatureWidth floats]
-// Total length is `kCompactStateFeatureSize`. Real action slots carry
-// `(from, to)` canonical cell indices in `[0, kBoardCells)`; padding
-// slots reuse the `XqA{kBoardCells, kBoardCells}` "no action" sentinel.
-inline constexpr size_t kCompactBoardFeatureSize = kBoardCells;
-inline constexpr size_t kCompactRepeatCounterSize = 1;
-inline constexpr size_t kCompactActionFeatureWidth = 2;
+// Compact (transformer-oriented) state layout. The state vector is a
+// flat concatenation of `kCompactStateTokenCount` uniform tokens, each
+// `kCompactTokenFeatureWidth = 2` floats wide:
+//
+//   tokens 0 .. kBoardCells - 1               : board cells,
+//                                                 [piece_code, 0]
+//   token  kBoardCells                        : repeat counter,
+//                                                 [repeat_count, 0]
+//   tokens kBoardCells + 1 .. (end - 1)       : legal-action slots,
+//                                                 [from, to]
+//
+// Total length is `kCompactStateFeatureSize = kCompactStateTokenCount *
+// kCompactTokenFeatureWidth = 195 * 2 = 390`. Action slots are sorted
+// by canonical `(from, to)` ascending; padding slots reuse the
+// `XqA{kBoardCells, kBoardCells}` "no action" sentinel for both
+// features. Board and repeat tokens leave feature slot 1 as a zero pad
+// so a single transformer per-token embedding can project the entire
+// sequence with one `W_embed`.
+inline constexpr size_t kCompactTokenFeatureWidth = 2;
+inline constexpr size_t kCompactStateTokenCount =
+    kBoardCells + 1 + XqGame::kMaxLegalActions;
 inline constexpr size_t kCompactStateFeatureSize =
-    kCompactBoardFeatureSize + kCompactRepeatCounterSize +
-    kCompactActionFeatureWidth * XqGame::kMaxLegalActions;
+    kCompactStateTokenCount * kCompactTokenFeatureWidth;
+
+// Token-index offsets within the state vector. Multiply by
+// `kCompactTokenFeatureWidth` to get the float-index offset.
+inline constexpr size_t kCompactBoardTokenOffset = 0;
+inline constexpr size_t kCompactRepeatTokenOffset = kBoardCells;
+inline constexpr size_t kCompactActionTokenOffset = kBoardCells + 1;
 
 /**
  * @brief Serializes Xiang Qi game state and training
@@ -107,27 +123,35 @@ class XqSerializer : public ::az::game::api::IGameSerializer<XqGame>,
  * whose policy head is sized to `XqGame::kMaxLegalActions` instead of
  * `XqGame::kPolicySize`.
  *
- * The input vector is a flat concatenation of three regions, total
- * length `kCompactStateFeatureSize`:
+ * The input vector is a flat concatenation of
+ * `kCompactStateTokenCount = 195` uniform tokens, each
+ * `kCompactTokenFeatureWidth = 2` floats wide, for a total length of
+ * `kCompactStateFeatureSize = 390`:
  *
- *   1. Board tokens (`kBoardCells = 90` floats). One token per cell of
- *      `CanonicalBoard()`, written row-major. Each token is the signed
- *      piece code in `[-7, +7]` (positive = current player). No
- *      one-hot expansion — the consuming network is expected to learn
- *      its own per-piece embedding.
- *   2. Repeat counter (`1` float). The value of
- *      `XqGame::CurrentPositionRepeatCount()` (1, 2, or 3), so the
- *      network can see proximity to the threefold-repetition draw.
- *   3. Legal-action slots (`kMaxLegalActions * 2 = 208` floats). Each
- *      slot is `(from, to)` in canonical cell coordinates in
- *      `[0, kBoardCells)`. Real slots are sorted by canonical
- *      `(from, to)` ascending. Padding slots reuse the existing
- *      `XqA{kBoardCells, kBoardCells}` "no action" sentinel.
+ *   1. Board tokens (tokens 0..89). One token per cell of
+ *      `CanonicalBoard()`, row-major. Token feature 0 holds the signed
+ *      piece code in `[-7, +7]` (positive = current player); feature 1
+ *      is a zero pad. No one-hot expansion — the consuming network is
+ *      expected to learn its own per-piece embedding from the scalar
+ *      piece code.
+ *   2. Repeat-counter token (token 90). Feature 0 holds
+ *      `XqGame::CurrentPositionRepeatCount()` (1, 2, or 3) so the
+ *      network can see proximity to the threefold-repetition draw;
+ *      feature 1 is a zero pad. Its distinct sequence position lets
+ *      the transformer's position embedding distinguish it from a
+ *      board cell with the same scalar value.
+ *   3. Legal-action tokens (tokens 91..194). Each token is
+ *      `(from, to)` in canonical cell coordinates in
+ *      `[0, kBoardCells)`. Real tokens are sorted by canonical
+ *      `(from, to)` ascending. Padding tokens reuse the existing
+ *      `XqA{kBoardCells, kBoardCells}` "no action" sentinel for both
+ *      features.
  *
- * The legal-action slot ordering is part of the public contract: the
- * i-th slot in this input vector matches the i-th non-padding entry of
- * `SerializePolicyOutput`'s `CompactPolicyTargetBlob`, so callers can
- * train and infer in the same frame without an explicit index map.
+ * The legal-action token ordering is part of the public contract: the
+ * i-th legal-action token in this input vector matches the i-th
+ * non-padding entry of `SerializePolicyOutput`'s
+ * `CompactPolicyTargetBlob`, so callers can train and infer in the
+ * same frame without an explicit index map.
  *
  * `SerializePolicyOutput` returns the same sorted compact row as a
  * `CompactPolicyTargetBlob`: `count` is the unpadded legal-action count,
