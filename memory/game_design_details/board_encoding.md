@@ -51,9 +51,9 @@ perspective:
   via `(r, c) -> (9 - r, 8 - c)`. The player to move always sees
   their pieces as positive and advancing toward increasing rows.
 
-## Network input encoding (15 planes of 9x10)
+## Dense network input encoding (15 planes of 9x10)
 
-The state serializer emits 15 planes laid out
+The dense state serializer (`XqSerializer`) emits 15 planes laid out
 `plane * 90 + r * 9 + c`, total 1350 floats.
 
 - Planes 0–6: current player's pieces, one plane per piece type
@@ -65,6 +65,33 @@ The state serializer emits 15 planes laid out
 
 The encoding is computed on top of `CanonicalBoard()` so the
 "current player vs opponent" plane split is automatic.
+
+## Compact network input encoding (transformer-oriented)
+
+The compact state serializer (`XqCompactSerializer`) skips the
+one-hot plane expansion and emits a flat float vector of length
+`kCompactStateFeatureSize = 90 + 1 + 2 * 104 = 299`. The consuming
+network is expected to learn its own per-piece and per-cell
+embeddings; the serializer's job is to deliver the raw signal.
+
+Layout (concatenated in this exact order):
+
+1. **Board tokens** — `kBoardCells = 90` floats. `out[cell]` is the
+   signed `int8_t` cell value of `CanonicalBoard()` cast to `float`,
+   so values lie in `{-7, -6, ..., -1, 0, +1, ..., +7}`. Positive
+   magnitudes are the current player's pieces; the sign comes from
+   `CanonicalBoard()`, not from a separate side-to-move feature.
+2. **Repeat counter** — `1` float. `XqGame::CurrentPositionRepeatCount()`,
+   clamped to `[1, 3]`, so the network can see proximity to the
+   threefold-repetition draw without observing past states directly.
+3. **Legal-action slots** — `104 * 2 = 208` floats. Two values per
+   slot: `(from, to)` as canonical cell indices in `[0, 90)`. Real
+   slots are sorted by canonical `(from, to)` ascending. Padding
+   slots use the `XqA{90, 90}` "no action" sentinel
+   (`from = to = 90.0`); see `action_encoding.md` for the contract.
+
+No positional embedding or spatial-structure hint is included — the
+9×10 grid topology is left for the network to learn from data.
 
 ## Memory profile
 

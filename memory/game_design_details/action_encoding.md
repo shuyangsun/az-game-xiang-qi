@@ -73,3 +73,37 @@ those that leave own General in check or violate Flying General.
 
 The exact iteration order is part of the contract: re-running
 `ValidActions()` on the same state returns the same vector.
+
+## Compact serializer action row
+
+`XqCompactSerializer` writes the legal actions as 104 fixed-width
+`(from, to)` slots after the board tokens and the repeat counter
+(see `board_encoding.md`). Real slots store canonical `(from, to)`
+cell indices in `[0, 90)`; padding slots use the `XqA{90, 90}`
+"no action" sentinel so they are unambiguously distinguishable
+from any real move.
+
+### Slot ordering contract (compact policy head)
+
+The i-th non-padding `(from, to)` slot in the compact input vector
+**must** correspond to the i-th non-padding entry of the matching
+`CompactPolicyTargetBlob` returned by
+`XqCompactSerializer::SerializePolicyOutput`. This alignment lets
+the network train and infer without an explicit per-action index
+map: row `i` of the policy head is the prior for the move shown at
+input slot `i`.
+
+The ordering itself is canonical `(from, to)` ascending — first by
+`from`, then by `to`. Concretely:
+
+- Build the candidate list by running `ValidActions()` and mapping
+  each action through `CanonicalAction`.
+- Sort by `(canonical.from, canonical.to)` ascending.
+- Pad the tail to `kMaxLegalActions = 104` with the sentinel.
+
+Because this coupling is load-bearing for any trained checkpoint,
+the ordering is fixed at the **API contract** level: changes to the
+sort comparator, to `ValidActions` iteration order, or to the
+sentinel value silently invalidate previously trained weights and
+must be treated as a breaking ABI change for the compact head. See
+`api_contract.md` ("Compact policy head ordering").

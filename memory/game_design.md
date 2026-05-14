@@ -148,12 +148,15 @@ validate; the engine guarantees only valid actions.
   `XqDeserializer` returns `XqError`, not `std::string`. Layout
   matches the serializer; size validation rejects vectors whose
   length is not `kPolicySize + 1`.
-- **Compact serializer / deserializer**: keep the same canonical
-  board prefix, append 104 legal-action feature slots to the input,
-  and produce/consume compact policy rows through
-  `CompactPolicyTargetBlob` / `CompactPolicyOutputBlob`. Legal
-  action slots are sorted deterministically by canonical `(from, to)`;
-  unused slots are padded.
+- **Compact serializer / deserializer**: transformer-oriented input
+  of 299 floats — 90 raw signed piece codes from `CanonicalBoard()`,
+  one repeat-counter scalar (1..3), then 104 `(from, to)` legal-action
+  slots sorted by canonical `(from, to)`. Padding slots use the
+  `XqA{90, 90}` "no action" sentinel. The deserializer pairs the
+  policy row with these same slots via `CompactPolicyTargetBlob` /
+  `CompactPolicyOutputBlob`. The slot ordering is fixed at the API
+  contract level — see [api_contract.md](./api_contract.md) and
+  [game_design_details/action_encoding.md](./game_design_details/action_encoding.md).
 - **Dense state serializer**: custom — see the input encoding section
   in [board_encoding.md](./game_design_details/board_encoding.md).
   14 piece-type planes + 1 side-to-move plane = 15 planes of

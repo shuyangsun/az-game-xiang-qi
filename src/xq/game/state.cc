@@ -78,6 +78,20 @@ bool XqGame::IsThreefoldRepetition() const noexcept {
   return false;
 }
 
+uint8_t XqGame::CurrentPositionRepeatCount() const noexcept {
+  uint8_t count = 1;
+  const uint32_t limit =
+      round_ <= kHistoryCap ? round_ : static_cast<uint32_t>(kHistoryCap);
+  for (uint32_t i = 0; i < limit; ++i) {
+    if (position_history_valid_[i] != 0 &&
+        position_history_[i] == position_hash_) {
+      ++count;
+      if (count >= 3) return 3;
+    }
+  }
+  return count;
+}
+
 bool XqGame::IsOver() const noexcept {
   // Termination priority — see
   // memory/game_rules_details/termination.md:

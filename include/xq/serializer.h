@@ -14,9 +14,19 @@ namespace az::game::xq {
 inline constexpr size_t kStateFeaturePlanes = 15;
 inline constexpr size_t kDenseStateFeatureSize =
     kStateFeaturePlanes * kBoardCells;
-inline constexpr size_t kCompactActionFeatureWidth = 3;
+
+// Compact (transformer-oriented) state layout. The state vector is the
+// concatenation of:
+//   [board: kBoardCells floats] [repeat_count: 1 float]
+//   [action_slots: kMaxLegalActions * kCompactActionFeatureWidth floats]
+// Total length is `kCompactStateFeatureSize`. Real action slots carry
+// `(from, to)` canonical cell indices in `[0, kBoardCells)`; padding
+// slots reuse the `XqA{kBoardCells, kBoardCells}` "no action" sentinel.
+inline constexpr size_t kCompactBoardFeatureSize = kBoardCells;
+inline constexpr size_t kCompactRepeatCounterSize = 1;
+inline constexpr size_t kCompactActionFeatureWidth = 2;
 inline constexpr size_t kCompactStateFeatureSize =
-    kDenseStateFeatureSize +
+    kCompactBoardFeatureSize + kCompactRepeatCounterSize +
     kCompactActionFeatureWidth * XqGame::kMaxLegalActions;
 
 /**
@@ -93,19 +103,31 @@ class XqSerializer : public ::az::game::api::IGameSerializer<XqGame>,
 };
 
 /**
- * @brief Compact Xiang Qi serializer for networks whose policy head is
- * sized to `XqGame::kMaxLegalActions` instead of `XqGame::kPolicySize`.
+ * @brief Compact Xiang Qi serializer for transformer-style networks
+ * whose policy head is sized to `XqGame::kMaxLegalActions` instead of
+ * `XqGame::kPolicySize`.
  *
- * The board-state prefix matches `XqSerializer::SerializeCurrentState`.
- * It then appends 104 fixed legal-action slots, each encoded as:
+ * The input vector is a flat concatenation of three regions, total
+ * length `kCompactStateFeatureSize`:
  *
- *   - mask: `1.0` for a real action, `0.0` for padding
- *   - from: canonical source cell normalized by `kBoardCells - 1`
- *   - to: canonical destination cell normalized by `kBoardCells - 1`
+ *   1. Board tokens (`kBoardCells = 90` floats). One token per cell of
+ *      `CanonicalBoard()`, written row-major. Each token is the signed
+ *      piece code in `[-7, +7]` (positive = current player). No
+ *      one-hot expansion — the consuming network is expected to learn
+ *      its own per-piece embedding.
+ *   2. Repeat counter (`1` float). The value of
+ *      `XqGame::CurrentPositionRepeatCount()` (1, 2, or 3), so the
+ *      network can see proximity to the threefold-repetition draw.
+ *   3. Legal-action slots (`kMaxLegalActions * 2 = 208` floats). Each
+ *      slot is `(from, to)` in canonical cell coordinates in
+ *      `[0, kBoardCells)`. Real slots are sorted by canonical
+ *      `(from, to)` ascending. Padding slots reuse the existing
+ *      `XqA{kBoardCells, kBoardCells}` "no action" sentinel.
  *
- * Real action slots are sorted by canonical `(from, to)` so the compact
- * policy row is deterministic and independent of piece-specific move
- * generation order. Padding slots are all zero.
+ * The legal-action slot ordering is part of the public contract: the
+ * i-th slot in this input vector matches the i-th non-padding entry of
+ * `SerializePolicyOutput`'s `CompactPolicyTargetBlob`, so callers can
+ * train and infer in the same frame without an explicit index map.
  *
  * `SerializePolicyOutput` returns the same sorted compact row as a
  * `CompactPolicyTargetBlob`: `count` is the unpadded legal-action count,

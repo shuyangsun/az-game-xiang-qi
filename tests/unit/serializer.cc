@@ -24,16 +24,20 @@ constexpr size_t kStateVectorLen =
     kDenseStateFeatureSize;  // 15 planes × 90 cells
 constexpr size_t kPolicyVectorLen = XqGame::kPolicySize + 1;
 
+// Compact-input offsets used by the new transformer-oriented layout.
+//   [0 .. kBoardCells)                       : board tokens (signed int8)
+//   [kBoardCells]                            : repeat counter
+//   [kBoardCells + 1 ..]                     : 104 (from, to) action slots
+constexpr size_t kCompactRepeatCounterOffset = kCompactBoardFeatureSize;
+constexpr size_t kCompactActionRowOffset =
+    kCompactBoardFeatureSize + kCompactRepeatCounterSize;
+
 struct ExpectedCompactAction {
   size_t policy_index;
   size_t valid_action_index;
   float from_feature;
   float to_feature;
 };
-
-float NormalizeCellForTest(uint8_t cell) noexcept {
-  return static_cast<float>(cell) / static_cast<float>(kBoardCells - 1);
-}
 
 bool ExpectedCompactActionLess(const ExpectedCompactAction& lhs,
                                const ExpectedCompactAction& rhs) noexcept {
@@ -47,11 +51,24 @@ std::vector<ExpectedCompactAction> ExpectedCompactActions(const XqGame& game) {
   for (size_t i = 0; i < actions.size(); ++i) {
     const XqA canonical = game.CanonicalAction(actions[i]);
     expected.push_back(ExpectedCompactAction{
-        game.PolicyIndex(canonical), i, NormalizeCellForTest(canonical.from),
-        NormalizeCellForTest(canonical.to)});
+        game.PolicyIndex(canonical), i, static_cast<float>(canonical.from),
+        static_cast<float>(canonical.to)});
   }
   std::sort(expected.begin(), expected.end(), ExpectedCompactActionLess);
   return expected;
+}
+
+// Find a legal move matching `(from, to)` in `game`. Returns the
+// no-action sentinel if no such legal move exists; the caller is
+// expected to assert before applying it.
+[[nodiscard]] XqA FindLegalMove(const XqGame& game, uint8_t from,
+                                uint8_t to) noexcept {
+  std::array<XqA, XqGame::kMaxLegalActions> buf{};
+  const size_t n = game.ValidActionsInto(buf);
+  for (size_t i = 0; i < n; ++i) {
+    if (buf[i].from == from && buf[i].to == to) return buf[i];
+  }
+  return XqA{kBoardCells, kBoardCells};
 }
 
 TEST(Serializer, FR_SER_FIXED_LEN_CurrentStateInitial) {
@@ -230,22 +247,77 @@ TEST(CompactSerializer, FR_SER_COMPACT_MAX_LEGAL_ACTIONS_IsTightBound) {
   EXPECT_EQ(XqGame::kMaxLegalActions, static_cast<size_t>(104));
 }
 
-TEST(CompactSerializer, FR_SER_COMPACT_INPUT_LEN_AppendsActionFeatures) {
+TEST(CompactSerializer, FR_SER_COMPACT_INPUT_LEN_IsFixed299) {
   const XqGame game;
   const GameHistory history;
-  const XqSerializer dense_serializer;
-  const XqCompactSerializer compact_serializer;
-  const std::vector<float> dense =
-      dense_serializer.SerializeCurrentState(game, history.View());
+  const XqCompactSerializer serializer;
   const std::vector<float> compact =
-      compact_serializer.SerializeCurrentState(game, history.View());
+      serializer.SerializeCurrentState(game, history.View());
+  // 90 board tokens + 1 repeat counter + 104 (from, to) slots = 299.
+  ASSERT_EQ(kCompactStateFeatureSize,
+            kCompactBoardFeatureSize + kCompactRepeatCounterSize +
+                kCompactActionFeatureWidth * XqGame::kMaxLegalActions);
+  EXPECT_EQ(compact.size(), kCompactStateFeatureSize);
+}
 
-  ASSERT_EQ(dense.size(), kDenseStateFeatureSize);
+TEST(CompactSerializer, FR_SER_COMPACT_BOARD_TokensAreCanonicalSignedCodes) {
+  const XqGame game(kBlack);  // exercise CanonicalBoard's rotation
+  const GameHistory history;
+  const XqCompactSerializer serializer;
+  const std::vector<float> compact =
+      serializer.SerializeCurrentState(game, history.View());
+
+  const XqB canonical = game.CanonicalBoard();
   ASSERT_EQ(compact.size(), kCompactStateFeatureSize);
-  for (size_t i = 0; i < dense.size(); ++i) {
-    EXPECT_FLOAT_EQ(compact[i], dense[i])
-        << "Compact serializer must keep dense board planes as its prefix.";
+  for (size_t cell = 0; cell < kBoardCells; ++cell) {
+    EXPECT_FLOAT_EQ(compact[cell], static_cast<float>(canonical[cell]))
+        << "Board token at cell " << cell
+        << " must equal the canonical signed piece code.";
   }
+}
+
+TEST(CompactSerializer, FR_SER_COMPACT_REPEAT_StartsAtOne) {
+  const XqGame game;
+  const GameHistory history;
+  const XqCompactSerializer serializer;
+  const std::vector<float> compact =
+      serializer.SerializeCurrentState(game, history.View());
+  ASSERT_EQ(compact.size(), kCompactStateFeatureSize);
+  EXPECT_FLOAT_EQ(compact[kCompactRepeatCounterOffset], 1.0F);
+}
+
+TEST(CompactSerializer, FR_SER_COMPACT_REPEAT_IncrementsOnReturnToStart) {
+  // Walk a back-and-forth chariot sequence so the starting position
+  // is reached a second time. CurrentPositionRepeatCount() — and
+  // therefore the compact repeat-counter feature — should report 2.
+  XqGame game;
+  const XqA red_forward = FindLegalMove(game, 0, 9);
+  ASSERT_NE(red_forward.from, kBoardCells)
+      << "Red chariot (0,0)->(1,0) expected legal at start.";
+  game.ApplyActionInPlace(red_forward);
+
+  const XqA black_forward = FindLegalMove(game, 81, 72);
+  ASSERT_NE(black_forward.from, kBoardCells)
+      << "Black chariot (9,0)->(8,0) expected legal after Red's first move.";
+  game.ApplyActionInPlace(black_forward);
+
+  const XqA red_back = FindLegalMove(game, 9, 0);
+  ASSERT_NE(red_back.from, kBoardCells)
+      << "Red chariot (1,0)->(0,0) expected legal.";
+  game.ApplyActionInPlace(red_back);
+
+  const XqA black_back = FindLegalMove(game, 72, 81);
+  ASSERT_NE(black_back.from, kBoardCells)
+      << "Black chariot (8,0)->(9,0) expected legal.";
+  game.ApplyActionInPlace(black_back);
+
+  const GameHistory history;
+  const XqCompactSerializer serializer;
+  const std::vector<float> compact =
+      serializer.SerializeCurrentState(game, history.View());
+  ASSERT_EQ(compact.size(), kCompactStateFeatureSize);
+  EXPECT_FLOAT_EQ(compact[kCompactRepeatCounterOffset], 2.0F);
+  EXPECT_EQ(game.CurrentPositionRepeatCount(), 2);
 }
 
 TEST(CompactSerializer, FR_SER_COMPACT_ACTIONS_SortedByCanonicalFromTo) {
@@ -262,21 +334,21 @@ TEST(CompactSerializer, FR_SER_COMPACT_ACTIONS_SortedByCanonicalFromTo) {
   }
 
   ASSERT_EQ(compact.size(), kCompactStateFeatureSize);
-  const size_t base = kDenseStateFeatureSize;
+  const float pad = static_cast<float>(kBoardCells);
   for (size_t i = 0; i < expected.size(); ++i) {
-    const size_t slot = base + i * kCompactActionFeatureWidth;
-    EXPECT_FLOAT_EQ(compact[slot], 1.0F);
-    EXPECT_FLOAT_EQ(compact[slot + 1], expected[i].from_feature);
-    EXPECT_FLOAT_EQ(compact[slot + 2], expected[i].to_feature);
+    const size_t slot =
+        kCompactActionRowOffset + i * kCompactActionFeatureWidth;
+    EXPECT_FLOAT_EQ(compact[slot], expected[i].from_feature);
+    EXPECT_FLOAT_EQ(compact[slot + 1], expected[i].to_feature);
     if (i > 0) {
       EXPECT_LT(expected[i - 1].policy_index, expected[i].policy_index);
     }
   }
   for (size_t i = expected.size(); i < XqGame::kMaxLegalActions; ++i) {
-    const size_t slot = base + i * kCompactActionFeatureWidth;
-    EXPECT_FLOAT_EQ(compact[slot], 0.0F);
-    EXPECT_FLOAT_EQ(compact[slot + 1], 0.0F);
-    EXPECT_FLOAT_EQ(compact[slot + 2], 0.0F);
+    const size_t slot =
+        kCompactActionRowOffset + i * kCompactActionFeatureWidth;
+    EXPECT_FLOAT_EQ(compact[slot], pad);
+    EXPECT_FLOAT_EQ(compact[slot + 1], pad);
   }
 }
 

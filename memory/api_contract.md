@@ -88,6 +88,28 @@ API library. Concrete games never implement it themselves.
 Deserializers produce `Evaluation`; policy serializers consume
 `TrainingTarget`. Same ordering convention on both.
 
+## Compact policy head ordering (load-bearing contract)
+
+For the compact head, the *order* in which legal actions appear in
+the serialized input vector and the order in which they appear in
+the `CompactPolicyTargetBlob` are part of the public ABI:
+
+- Real action slots are sorted by canonical `(from, to)` ascending.
+- Padding slots in the input use the `XqA{kBoardCells, kBoardCells}`
+  "no action" sentinel; padding entries in the blob use
+  `CompactPolicyTargetBlob::kPaddingSlot`.
+- The i-th non-padding input slot pairs with the i-th non-padding
+  blob entry, so a trained checkpoint can read priors row-by-row
+  without an explicit index map.
+
+Any change to this ordering — including reorderings of
+`ValidActions`, changes to the sort comparator, or repurposing of
+the padding sentinel — invalidates previously trained weights and
+**must** be treated as a breaking change. See
+[game_design_details/action_encoding.md](./game_design_details/action_encoding.md)
+("Compact serializer action row") for the full mechanical
+description.
+
 ## Engine-owned history
 
 The state serializer signature is

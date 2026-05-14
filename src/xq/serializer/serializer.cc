@@ -27,9 +27,11 @@ constexpr size_t PlaneOffset(size_t plane) noexcept {
   return plane * kBoardCells;
 }
 
-constexpr float NormalizeCell(uint8_t cell) noexcept {
-  return static_cast<float>(cell) / static_cast<float>(kBoardCells - 1);
-}
+// `XqA{kBoardCells, kBoardCells}` is the engine-wide "no action"
+// sentinel (see action_encoding.md). The compact serializer reuses it
+// to mark padded legal-action slots so the input layout never collides
+// with any real `(from, to)` pair in `[0, kBoardCells)^2`.
+constexpr float kCompactActionPadValue = static_cast<float>(kBoardCells);
 
 bool LegalActionFeatureLess(const LegalActionFeature& lhs,
                             const LegalActionFeature& rhs) noexcept {
@@ -87,15 +89,26 @@ void AppendCompactActionFeatures(const XqGame& game,
       SortedLegalActionFeatures(game);
   for (size_t i = 0; i < XqGame::kMaxLegalActions; ++i) {
     if (i < features.size()) {
-      out.push_back(1.0F);
-      out.push_back(NormalizeCell(features[i].canonical_action.from));
-      out.push_back(NormalizeCell(features[i].canonical_action.to));
+      out.push_back(static_cast<float>(features[i].canonical_action.from));
+      out.push_back(static_cast<float>(features[i].canonical_action.to));
     } else {
-      out.push_back(0.0F);
-      out.push_back(0.0F);
-      out.push_back(0.0F);
+      out.push_back(kCompactActionPadValue);
+      out.push_back(kCompactActionPadValue);
     }
   }
+}
+
+void AppendCompactBoardTokens(const XqGame& game,
+                              std::vector<float>& out) noexcept {
+  const XqB canonical = game.CanonicalBoard();
+  for (size_t cell = 0; cell < kBoardCells; ++cell) {
+    out.push_back(static_cast<float>(canonical[cell]));
+  }
+}
+
+void AppendRepeatCounter(const XqGame& game,
+                         std::vector<float>& out) noexcept {
+  out.push_back(static_cast<float>(game.CurrentPositionRepeatCount()));
 }
 
 }  // namespace
@@ -137,11 +150,16 @@ std::vector<float> XqSerializer::SerializePolicyOutput(
 std::vector<float> XqCompactSerializer::SerializeCurrentState(
     const XqGame& game,
     ::az::game::api::RingBufferView<XqGame> /*history*/) const noexcept {
-  // Markov game: history view is unused. The compact layout keeps the
-  // dense board-state planes as a prefix, then appends the deterministic
-  // legal-action feature row used to align the compact policy head.
-  std::vector<float> out = SerializeBoardState(game);
+  // Markov game: history view is unused. The compact layout is the
+  // concatenation of:
+  //   [board: kBoardCells raw signed piece codes from CanonicalBoard()]
+  //   [repeat_count: CurrentPositionRepeatCount() clamped to 1..3]
+  //   [action_slots: (from, to) per slot, sorted by canonical (from, to);
+  //                  padding slots use {kBoardCells, kBoardCells} sentinel]
+  std::vector<float> out;
   out.reserve(kCompactStateFeatureSize);
+  AppendCompactBoardTokens(game, out);
+  AppendRepeatCounter(game, out);
   AppendCompactActionFeatures(game, out);
   return out;
 }

@@ -283,6 +283,22 @@ class XqGame {
       std::array<XqA, kMaxLegalActions>& out) const noexcept;
 
   /**
+   * @brief Number of times the current position has occurred so far,
+   * clamped to `[1, 3]`.
+   *
+   * Returns `1` for a position seen for the first time (including
+   * the initial state), `2` for the second occurrence, and `3` once
+   * the position has been seen three or more times — at which point
+   * `IsOver()` reports a draw by threefold repetition. The bound of
+   * `3` matches the rule: the network never needs to distinguish
+   * higher counts because the game terminates there.
+   *
+   * Counts are based on the Zobrist position-history log; snapshot-
+   * constructed games (no playthrough history) always report `1`.
+   */
+  [[nodiscard]] uint8_t CurrentPositionRepeatCount() const noexcept;
+
+  /**
    * @brief Whether the game has reached a terminal state.
    *
    * Returns `true` if any of the following holds:
