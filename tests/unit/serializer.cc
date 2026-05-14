@@ -187,7 +187,7 @@ TEST(Serializer, FR_SER_POLICY_SLOTS_AreCanonicalFrameForBlack) {
         << "Black probability not at canonical-frame slot " << canonical_slot;
     // Live-frame slot would be wrong here. Only require strict inequality
     // when the two slots actually differ (i.e., not a palindromic action
-    // that maps to itself under vertical flip).
+    // that maps to itself under 180-degree rotation).
     if (canonical_slot != live_slot) {
       EXPECT_FLOAT_EQ(out[live_slot], 0.0F)
           << "Black probability leaked into live-frame slot " << live_slot;

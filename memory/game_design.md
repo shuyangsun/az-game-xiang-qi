@@ -86,13 +86,14 @@ XqB board_{};                                  // 90 B
 uint32_t round_ = 0;                           // 4 B
 XqP current_player_ = false;                   // 1 B (Red starts)
 std::array<XqA, *kMaxRounds> action_history_{}; // 600 B
-std::array<uint64_t, *kMaxRounds> position_history_{};  // 2400 B
+std::array<uint64_t, *kMaxRounds + 1> position_history_{};  // 2408 B
+std::array<uint8_t, *kMaxRounds + 1> position_history_valid_{};  // 301 B
 // Each Apply also stores: captured piece code + repetition-counter
 // delta, packed into one byte per ply, used by Undo.
 std::array<uint8_t, *kMaxRounds> apply_undo_log_{};     // 300 B
 ```
 
-Total per instance: ~3.4 KiB. Significant but predictable; see
+Total per instance: ~3.7 KiB. Significant but predictable; see
 the memory note in
 [repetition.md](./game_design_details/repetition.md).
 
@@ -103,7 +104,7 @@ the memory note in
   2. Move piece, clear source, flip `current_player_`, increment
      `round_`.
   3. Update Zobrist hash incrementally; push to
-     `position_history_`.
+     `position_history_[round_]`.
   4. Pack captured piece + irreversible-flag into
      `apply_undo_log_[round_-1]`.
 - `UndoLastAction`:

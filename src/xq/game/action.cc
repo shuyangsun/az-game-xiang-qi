@@ -12,6 +12,8 @@ namespace {
 using ::az::game::xq::internal::EmitPseudoLegalMoves;
 using ::az::game::xq::internal::IsFlyingGenerals;
 using ::az::game::xq::internal::IsInCheck;
+using ::az::game::xq::internal::IsNoAction;
+using ::az::game::xq::internal::kUndoUnavailable;
 using ::az::game::xq::internal::kZobristBlackToMove;
 using ::az::game::xq::internal::kZobristPieceKeys;
 using ::az::game::xq::internal::ZobristPieceIndex;
@@ -91,17 +93,27 @@ void XqGame::ApplyActionInPlace(const XqA& action) noexcept {
   if (round_ < kHistoryCap) {
     action_history_[round_] = action;
     apply_undo_log_[round_] = PackCaptured(captured);
-    position_history_[round_] = position_hash_;
   }
   ++round_;
+  if (round_ <= kHistoryCap) {
+    position_history_[round_] = position_hash_;
+    position_history_valid_[round_] = 1;
+  }
 }
 
 void XqGame::UndoLastAction() noexcept {
   if (round_ == 0) return;
+  const uint32_t previous_round = round_ - 1;
+  if (previous_round >= kHistoryCap) return;
+  const XqA action = action_history_[previous_round];
+  if (IsNoAction(action) ||
+      apply_undo_log_[previous_round] == kUndoUnavailable) {
+    return;
+  }
+
   --round_;
   current_player_ = !current_player_;
 
-  const XqA action = action_history_[round_];
   const int8_t captured =
       round_ < kHistoryCap ? UnpackCaptured(apply_undo_log_[round_]) : 0;
 

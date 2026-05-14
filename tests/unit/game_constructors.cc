@@ -233,8 +233,8 @@ TEST(GameConstructors, SnapshotConstructorPropagatesFields) {
 
 TEST(GameConstructors, SnapshotConstructorWithoutLastAction) {
   const XqB board = ExpectedStartBoard();
-  const XqGame game(board, kRed, /*current_round=*/0, std::nullopt);
-  EXPECT_EQ(game.CurrentRound(), 0u);
+  const XqGame game(board, kRed, /*current_round=*/4, std::nullopt);
+  EXPECT_EQ(game.CurrentRound(), 4u);
   EXPECT_FALSE(game.LastAction().has_value());
   EXPECT_FALSE(game.LastPlayer().has_value());
 }

@@ -795,6 +795,48 @@ TEST(GameAction, RepetitionOnlyBetweenIdenticalPositions) {
   EXPECT_FLOAT_EQ(game.GetScore(kBlack), 0.0F);
 }
 
+TEST(GameAction, RepetitionRequiresThreeOccurrencesForNonInitialPosition) {
+  XqGame game = MakeGame(
+      {{{0, 4}, kRG}, {{9, 3}, kBG}, {{3, 1}, kRC}, {{6, 1}, kBC}}, kRed);
+  const XqA red_up{Idx(3, 1), Idx(4, 1)};
+  const XqA red_dn{Idx(4, 1), Idx(3, 1)};
+  const XqA blk_up{Idx(6, 1), Idx(5, 1)};
+  const XqA blk_dn{Idx(5, 1), Idx(6, 1)};
+
+  game.ApplyActionInPlace(red_up);
+  game.ApplyActionInPlace(blk_up);
+  game.ApplyActionInPlace(red_dn);
+  game.ApplyActionInPlace(blk_dn);
+  game.ApplyActionInPlace(red_up);
+  game.ApplyActionInPlace(blk_up);
+
+  EXPECT_FALSE(game.IsOver())
+      << "The round-2 position has occurred only twice including current.";
+}
+
+TEST(GameAction, SnapshotWithoutLastActionDoesNotUndoUsingDefaultAction) {
+  const XqB board = EmptyBoard();
+  XqGame game(board, kRed, /*current_round=*/4, std::nullopt);
+  const XqB before_board = game.GetBoard();
+  game.UndoLastAction();
+  EXPECT_EQ(game.CurrentRound(), 4u);
+  EXPECT_EQ(game.GetBoard(), before_board);
+  EXPECT_FALSE(game.LastAction().has_value());
+}
+
+TEST(GameAction, SnapshotLastActionDoesNotUndoWithoutMetadata) {
+  const XqB board = EmptyBoard();
+  XqGame game(board, kBlack, /*current_round=*/4, XqA{Idx(0, 1), Idx(2, 2)});
+  const XqB before_board = game.GetBoard();
+  ASSERT_TRUE(game.LastAction().has_value());
+  game.UndoLastAction();
+  EXPECT_EQ(game.CurrentRound(), 4u);
+  EXPECT_EQ(game.GetBoard(), before_board);
+  ASSERT_TRUE(game.LastAction().has_value());
+  EXPECT_EQ(game.LastAction()->from, Idx(0, 1));
+  EXPECT_EQ(game.LastAction()->to, Idx(2, 2));
+}
+
 TEST(GameAction, UndoBeyondZeroIsNoOp) {
   XqGame game;
   EXPECT_EQ(game.CurrentRound(), 0u);

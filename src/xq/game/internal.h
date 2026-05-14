@@ -36,6 +36,16 @@ constexpr int8_t kNumPieceTypes = 7;
 // 14 distinct (color, piece-type) codes for Zobrist indexing.
 constexpr int8_t kNumPieceCodes = 14;
 
+constexpr XqA kNoAction{kBoardCells, kBoardCells};
+
+// Used in apply_undo_log_ when a snapshot exposes LastAction() but does not
+// contain enough information to reverse that action.
+constexpr uint8_t kUndoUnavailable = 0xFF;
+
+constexpr bool IsNoAction(const XqA& action) noexcept {
+  return action.from >= kBoardCells || action.to >= kBoardCells;
+}
+
 // ============================================================================
 // Cell coordinate helpers.
 // ============================================================================

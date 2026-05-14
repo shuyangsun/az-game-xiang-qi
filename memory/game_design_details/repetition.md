@@ -17,21 +17,25 @@ times) so `IsOver()` can return `true` for the draw case.
   - XOR out the moving piece on `from`, XOR in on `to`.
   - XOR out any captured piece on `to`.
   - XOR the side-to-move key.
-  - Push the resulting hash into `position_history_[round_]`.
+  - Push the resulting hash into `position_history_[round + 1]`
+    after incrementing the round.
 - On `UndoLastAction`:
   - Reverse the XORs (Zobrist is its own inverse).
   - Effectively, pop `position_history_`.
 
-`position_history_` is `std::array<uint64_t, 300>` — sized to
-`kMaxRounds`. Total cost: 2.4 KiB per game state.
+`position_history_` is `std::array<uint64_t, 301>` — sized to
+`kMaxRounds + 1` so it includes both the initial position and the
+position after the final allowed ply. A parallel validity array marks
+which slots are real because snapshot-constructed games may not know
+older history.
 
 ## Detection
 
-`IsOver()` (and similar termination checks) compute occurrence
-of the **current** position hash by scanning
-`position_history_[0..round_-1]`. If the count is `>= 3`, the
-game is a draw. Linear scan is O(`round_`); for `round_ <= 300`
-this is negligible compared to move generation.
+`IsOver()` (and similar termination checks) compute occurrences of
+the **current** position hash by counting the current state plus
+valid previous slots in `position_history_[0..round_-1]`. If the
+count is `>= 3`, the game is a draw. Linear scan is O(`round_`);
+for `round_ <= 300` this is negligible compared to move generation.
 
 ## Hash-only repetition is approximate
 
@@ -52,10 +56,9 @@ variance.
 
 The snapshot constructor (used by augmenters) builds the
 position hash from scratch by XORing every occupied cell. It
-sets `round_` to the supplied value but seeds
-`position_history_[round_-1]` with the current hash only if
-`last_action.has_value()`; older history is left zero. Augmented
-games are thus not safe to use for repetition-driven termination
-detection — augmenters operate on single positions, not on
-playthroughs. Document that limitation explicitly in the
-augmentation tests.
+sets `round_` to the supplied value and seeds only
+`position_history_[round_]` with the current hash; older history is
+marked invalid. Augmented games are thus not safe to use for
+repetition-driven termination detection — augmenters operate on
+single positions, not on playthroughs. Document that limitation
+explicitly in the augmentation tests.

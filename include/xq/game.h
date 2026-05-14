@@ -179,12 +179,13 @@ class XqGame {
    * @brief Construct from an arbitrary snapshot.
    *
    * Used by augmenters to materialize transformed positions. The
-   * resulting game's action history is a single-step trail derived
-   * from `last_action`, which supports one undo but not arbitrary
-   * backtracking. The position-history log is seeded with the
-   * current position only; older history is left empty, so
-   * threefold-repetition detection on snapshot-constructed games is
-   * not meaningful.
+   * resulting game's `LastAction()` / `LastPlayer()` observers are
+   * seeded from `last_action`, but undo metadata for that historical
+   * action is unavailable, so `UndoLastAction()` will not reverse it.
+   * Actions applied after construction remain fully undoable. The
+   * position-history log is seeded with the current position only;
+   * older history is left empty, so threefold-repetition detection on
+   * snapshot-constructed games is not meaningful.
    */
   XqGame(const XqB& board, XqP current_player, uint32_t current_round,
          std::optional<XqA> last_action) noexcept;
@@ -232,14 +233,12 @@ class XqGame {
    *
    * Returns a copy of the board where the current player's pieces
    * are positive and the opponent's are negative AND the board is
-   * vertically flipped so own pieces always occupy rows `0..4`. If
-   * Red is to move, the board is returned unchanged (Red is already
-   * + and on top); if Black is to move, every non-zero cell is
-   * negated and the board is mirrored across the horizontal center
-   * (`r → kBoardRows - 1 - r`). Left-right (file) augmentation is
-   * still the augmenter's job (`XqInferenceAugmenter` /
-   * `XqTrainingAugmenter`) — only the vertical perspective flip
-   * lives here.
+   * rotated 180 degrees so own pieces always occupy rows `0..4`
+   * from the same forward-facing perspective. If Red is to move, the
+   * board is returned unchanged (Red is already + and on top); if
+   * Black is to move, every non-zero cell is negated and the board is
+   * rotated by mapping `(r, c)` to
+   * `(kBoardRows - 1 - r, kBoardCols - 1 - c)`.
    *
    * Pairs with `CanonicalAction` so policy slots written by
    * `XqSerializer` live in the same canonical frame as the board
@@ -252,9 +251,9 @@ class XqGame {
    *
    * Returns the action expressed in the same coordinate frame as
    * `CanonicalBoard()`. For Red, this is the identity. For Black,
-   * each cell is vertically flipped (`r → kBoardRows - 1 - r`,
-   * column unchanged), matching the board flip applied by
-   * `CanonicalBoard()`. The mapping is self-inverse — calling it
+   * each cell is rotated 180 degrees (`r → kBoardRows - 1 - r`,
+   * `c → kBoardCols - 1 - c`), matching the board transform applied
+   * by `CanonicalBoard()`. The mapping is self-inverse — calling it
    * twice returns the original action.
    *
    * `XqSerializer` and `XqDeserializer` both index policy slots via
@@ -399,25 +398,32 @@ class XqGame {
   // Side to move. Red (`kRed`) moves first.
   XqP current_player_ = kRed;
 
-  // Stack of applied actions. Slot `i` holds the action that
-  // produced position-history slot `i + 1` (i.e. the action that
-  // brought the game to round `i + 1`).
+  // Stack of applied actions. Slot `i` holds the action that brought
+  // the game to round `i + 1`, or the no-action sentinel when no
+  // reversible action is known for that ply.
   std::array<XqA, kHistoryCap> action_history_{};
 
-  // Per-ply Zobrist hash log. `position_history_[i]` is the hash
-  // of the position at the start of round `i + 1` (after action
-  // `action_history_[i]` was applied).
-  std::array<uint64_t, kHistoryCap> position_history_{};
+  // Per-round Zobrist hash log. `position_history_[i]` is the hash
+  // of the position at the start of round `i`. The array has one
+  // extra entry so the terminal max-round position can be logged.
+  std::array<uint64_t, kHistoryCap + 1> position_history_{};
+
+  // Whether the corresponding position-history slot contains a real
+  // hash. Snapshot-constructed games may only know the current slot.
+  std::array<uint8_t, kHistoryCap + 1> position_history_valid_{};
 
   // Per-ply undo metadata: low nibble = captured piece magnitude
   // (0 if no capture), high bit = sign of captured piece (1 if
-  // Black). Allows `UndoLastAction` to restore the captured piece
-  // without consulting any external table.
+  // Black), or the unavailable sentinel for snapshot-seeded actions.
+  // Allows `UndoLastAction` to restore the captured piece without
+  // consulting any external table when metadata is available.
   std::array<uint8_t, kHistoryCap> apply_undo_log_{};
 
   // Running Zobrist hash of the current position. Updated
   // incrementally on Apply/Undo.
   uint64_t position_hash_ = 0;
+
+  [[nodiscard]] bool IsThreefoldRepetition() const noexcept;
 };
 
 static_assert(::az::game::api::Game<XqGame>,

@@ -43,15 +43,13 @@ Construction sets:
 ## CanonicalBoard
 
 `CanonicalBoard()` returns the board from the current player's
-perspective by negating every cell when it's Black to move:
+perspective:
 
 - If `current_player_ == Player1` (Red): return `board_` as-is.
 - If `current_player_ == Player2` (Black): return a copy with
-  every non-zero cell negated (flips piece colors only). Note:
-  this does NOT geometrically rotate the board — the player to
-  move always sees their pieces as positive, the opponent as
-  negative. Geometric rotation is the augmenter's job, not
-  the canonical-view's.
+  every non-zero cell negated and every cell rotated 180 degrees
+  via `(r, c) -> (9 - r, 8 - c)`. The player to move always sees
+  their pieces as positive and advancing toward increasing rows.
 
 ## Network input encoding (15 planes of 9x10)
 

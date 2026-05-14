@@ -17,6 +17,7 @@ using ::az::game::xq::internal::kBlackElephant;
 using ::az::game::xq::internal::kBlackGeneral;
 using ::az::game::xq::internal::kBlackHorse;
 using ::az::game::xq::internal::kBlackSoldier;
+using ::az::game::xq::internal::kNoAction;
 using ::az::game::xq::internal::kRedAdvisor;
 using ::az::game::xq::internal::kRedCannon;
 using ::az::game::xq::internal::kRedChariot;
@@ -24,6 +25,7 @@ using ::az::game::xq::internal::kRedElephant;
 using ::az::game::xq::internal::kRedGeneral;
 using ::az::game::xq::internal::kRedHorse;
 using ::az::game::xq::internal::kRedSoldier;
+using ::az::game::xq::internal::kUndoUnavailable;
 
 XqB StartingBoard() noexcept {
   XqB board{};
@@ -74,13 +76,21 @@ XqGame::XqGame() noexcept
     : board_(StartingBoard()),
       round_(0),
       current_player_(kRed),
-      position_hash_(HashBoard(board_, current_player_)) {}
+      position_hash_(HashBoard(board_, current_player_)) {
+  action_history_.fill(kNoAction);
+  position_history_[0] = position_hash_;
+  position_history_valid_[0] = 1;
+}
 
 XqGame::XqGame(XqP starting_player) noexcept
     : board_(StartingBoard()),
       round_(0),
       current_player_(starting_player),
-      position_hash_(HashBoard(board_, current_player_)) {}
+      position_hash_(HashBoard(board_, current_player_)) {
+  action_history_.fill(kNoAction);
+  position_history_[0] = position_hash_;
+  position_history_valid_[0] = 1;
+}
 
 XqGame::XqGame(const XqB& board, XqP current_player, uint32_t current_round,
                std::optional<XqA> last_action) noexcept
@@ -88,14 +98,19 @@ XqGame::XqGame(const XqB& board, XqP current_player, uint32_t current_round,
       round_(current_round),
       current_player_(current_player),
       position_hash_(HashBoard(board_, current_player_)) {
-  // Snapshot constructor: seed only the most recent slot of
-  // `position_history_`. Augmented snapshots are not driven by MCTS
-  // undo loops past one ply; older history is left zero. See
+  action_history_.fill(kNoAction);
+  // Snapshot constructor: seed only the current `position_history_`
+  // slot. Augmented snapshots are not driven by MCTS undo loops; older
+  // history is unknown and therefore marked invalid. See
   // `memory/game_design_details/repetition.md`.
+  if (current_round <= kHistoryCap) {
+    position_history_[current_round] = position_hash_;
+    position_history_valid_[current_round] = 1;
+  }
   if (current_round > 0 && current_round <= kHistoryCap) {
-    position_history_[current_round - 1] = position_hash_;
     if (last_action.has_value()) {
       action_history_[current_round - 1] = *last_action;
+      apply_undo_log_[current_round - 1] = kUndoUnavailable;
     }
   }
 }

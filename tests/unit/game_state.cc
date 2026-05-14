@@ -19,7 +19,7 @@ TEST(GameState, CanonicalBoardForRedReturnsLiveBoard) {
   EXPECT_EQ(game.CanonicalBoard(), game.GetBoard());
 }
 
-TEST(GameState, CanonicalBoardForBlackNegatesAndFlipsBoard) {
+TEST(GameState, CanonicalBoardForBlackNegatesAndRotatesBoard) {
   const XqGame game(kBlack);
   const XqB& live = game.GetBoard();
   const XqB canonical = game.CanonicalBoard();
@@ -27,7 +27,8 @@ TEST(GameState, CanonicalBoardForBlackNegatesAndFlipsBoard) {
     for (uint8_t c = 0; c < kBoardCols; ++c) {
       const size_t canon_idx = static_cast<size_t>(r) * kBoardCols + c;
       const size_t live_idx =
-          static_cast<size_t>(kBoardRows - 1 - r) * kBoardCols + c;
+          static_cast<size_t>(kBoardRows - 1 - r) * kBoardCols +
+          (kBoardCols - 1 - c);
       EXPECT_EQ(canonical[canon_idx], static_cast<int8_t>(-live[live_idx]))
           << "Row " << +r << " col " << +c;
     }
@@ -37,9 +38,15 @@ TEST(GameState, CanonicalBoardForBlackNegatesAndFlipsBoard) {
 TEST(GameState, CanonicalBoardLeavesEmptyCellsUnchanged) {
   const XqGame game(kBlack);
   const XqB canonical = game.CanonicalBoard();
-  for (size_t i = 0; i < canonical.size(); ++i) {
-    if (game.GetBoard()[i] == 0) {
-      EXPECT_EQ(canonical[i], 0);
+  for (uint8_t r = 0; r < kBoardRows; ++r) {
+    for (uint8_t c = 0; c < kBoardCols; ++c) {
+      const size_t canon_idx = static_cast<size_t>(r) * kBoardCols + c;
+      const size_t live_idx =
+          static_cast<size_t>(kBoardRows - 1 - r) * kBoardCols +
+          (kBoardCols - 1 - c);
+      if (game.GetBoard()[live_idx] == 0) {
+        EXPECT_EQ(canonical[canon_idx], 0);
+      }
     }
   }
 }
@@ -52,18 +59,15 @@ TEST(GameState, CanonicalActionForRedIsIdentity) {
   EXPECT_EQ(canonical.to, a.to);
 }
 
-TEST(GameState, CanonicalActionForBlackVerticallyFlipsCells) {
+TEST(GameState, CanonicalActionForBlackRotatesCells) {
   const XqGame game(kBlack);
   // (row 7, col 1) and (row 6, col 1) — pick a non-palindromic row pair
-  // so the flip is observable.
+  // and column so the rotation is observable.
   const XqA a{Cell(7, 1), Cell(6, 1)};
   const XqA canonical = game.CanonicalAction(a);
-  // Vertical flip: r → kBoardRows - 1 - r.
-  EXPECT_EQ(canonical.from, Cell(kBoardRows - 1 - 7, 1));
-  EXPECT_EQ(canonical.to, Cell(kBoardRows - 1 - 6, 1));
-  // Columns must not change.
-  EXPECT_EQ(canonical.from % kBoardCols, 1);
-  EXPECT_EQ(canonical.to % kBoardCols, 1);
+  // Black canonicalization is a 180-degree rotation.
+  EXPECT_EQ(canonical.from, Cell(kBoardRows - 1 - 7, kBoardCols - 1 - 1));
+  EXPECT_EQ(canonical.to, Cell(kBoardRows - 1 - 6, kBoardCols - 1 - 1));
 }
 
 TEST(GameState, CanonicalActionIsSelfInverseForBlack) {
@@ -79,21 +83,20 @@ TEST(GameState, CanonicalActionIsSelfInverseForBlack) {
 // whole point of `CanonicalAction`: Red and Black share the policy
 // head's row for the same canonical move.
 TEST(GameState, CanonicalActionShareSlotAcrossSides) {
-  const XqGame red;          // Red to move; "own" at top (rows 0..4).
-  const XqGame black(kBlack); // Black to move; "own" at bottom (rows 5..9).
+  const XqGame red;            // Red to move; "own" at top (rows 0..4).
+  const XqGame black(kBlack);  // Black to move; "own" at bottom (rows 5..9).
 
-  // Red advances an own piece from row 3 col 4 to row 4 col 4.
-  const XqA red_a{Cell(3, 4), Cell(4, 4)};
+  // Red advances an own piece from row 3 col 2 to row 4 col 2.
+  const XqA red_a{Cell(3, 2), Cell(4, 2)};
   const size_t red_slot = red.PolicyIndex(red.CanonicalAction(red_a));
 
   // Black's equivalent canonical move: Black's "own" is at rows 5..9
-  // (live). After vertical flip, "own" sits at canonical rows 0..4 —
-  // the same rows Red occupies. So Black's live move "(row 6 col 4) →
-  // (row 5 col 4)" canonicalizes to (row 3 col 4) → (row 4 col 4),
+  // (live). After 180-degree rotation, "own" sits at canonical rows 0..4 —
+  // the same rows Red occupies. So Black's live move "(row 6 col 6) →
+  // (row 5 col 6)" canonicalizes to (row 3 col 2) → (row 4 col 2),
   // the same canonical slot as Red's move above.
-  const XqA black_a{Cell(6, 4), Cell(5, 4)};
-  const size_t black_slot =
-      black.PolicyIndex(black.CanonicalAction(black_a));
+  const XqA black_a{Cell(6, 6), Cell(5, 6)};
+  const size_t black_slot = black.PolicyIndex(black.CanonicalAction(black_a));
 
   EXPECT_EQ(red_slot, black_slot)
       << "Red slot=" << red_slot << " black slot=" << black_slot;
@@ -192,6 +195,14 @@ TEST(GameState, FR_STALEMATE_LOSS_NoLegalMovesNotInCheck) {
   EXPECT_TRUE(game.IsOver());
   EXPECT_FLOAT_EQ(game.GetScore(kRed), -1.0F);
   EXPECT_FLOAT_EQ(game.GetScore(kBlack), 1.0F);
+}
+
+TEST(GameState, FR_TERM_GENERAL_MISSING_OpponentGeneralMissingIsTerminal) {
+  const XqGame game =
+      term_helpers::BuildPosition({{{0, 4}, 1}}, kRed, /*round=*/0);
+  EXPECT_TRUE(game.IsOver());
+  EXPECT_FLOAT_EQ(game.GetScore(kRed), 1.0F);
+  EXPECT_FLOAT_EQ(game.GetScore(kBlack), -1.0F);
 }
 
 TEST(GameState, FR_REPETITION_DRAW_ThreefoldFromInitialPosition) {
