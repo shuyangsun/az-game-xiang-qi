@@ -2,6 +2,7 @@
 #define ALPHA_ZERO_GAME_XIANG_QI_TESTS_UNIT_VALID_ACTIONS_H_
 
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <vector>
 
@@ -17,7 +18,10 @@ namespace az::game::xq {
     const XqGame& game) noexcept {
   std::array<XqA, XqGame::kMaxLegalActions> buf{};
   const size_t count = game.ValidActionsInto(buf);
-  return std::vector<XqA>(buf.begin(), buf.begin() + count);
+  assert(count <= XqGame::kMaxLegalActions);
+  const size_t bounded_count =
+      count <= XqGame::kMaxLegalActions ? count : XqGame::kMaxLegalActions;
+  return std::vector<XqA>(buf.begin(), buf.begin() + bounded_count);
 }
 
 }  // namespace az::game::xq

@@ -1,5 +1,6 @@
 #include "include/xq/serializer.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -20,8 +21,38 @@ using GameHistory =
     RingBuffer<XqGame, std::array<XqGame, XqGame::kHistoryLookback>>;
 
 constexpr size_t kStateVectorLen =
-    static_cast<size_t>(15) * 90;  // 15 planes × 90 cells
+    kDenseStateFeatureSize;  // 15 planes × 90 cells
 constexpr size_t kPolicyVectorLen = XqGame::kPolicySize + 1;
+
+struct ExpectedCompactAction {
+  size_t policy_index;
+  size_t valid_action_index;
+  float from_feature;
+  float to_feature;
+};
+
+float NormalizeCellForTest(uint8_t cell) noexcept {
+  return static_cast<float>(cell) / static_cast<float>(kBoardCells - 1);
+}
+
+bool ExpectedCompactActionLess(const ExpectedCompactAction& lhs,
+                               const ExpectedCompactAction& rhs) noexcept {
+  return lhs.policy_index < rhs.policy_index;
+}
+
+std::vector<ExpectedCompactAction> ExpectedCompactActions(const XqGame& game) {
+  const std::vector<XqA> actions = ValidActions(game);
+  std::vector<ExpectedCompactAction> expected;
+  expected.reserve(actions.size());
+  for (size_t i = 0; i < actions.size(); ++i) {
+    const XqA canonical = game.CanonicalAction(actions[i]);
+    expected.push_back(ExpectedCompactAction{
+        game.PolicyIndex(canonical), i, NormalizeCellForTest(canonical.from),
+        NormalizeCellForTest(canonical.to)});
+  }
+  std::sort(expected.begin(), expected.end(), ExpectedCompactActionLess);
+  return expected;
+}
 
 TEST(Serializer, FR_SER_FIXED_LEN_CurrentStateInitial) {
   const XqGame game;
@@ -192,6 +223,96 @@ TEST(Serializer, FR_SER_POLICY_SLOTS_AreCanonicalFrameForBlack) {
       EXPECT_FLOAT_EQ(out[live_slot], 0.0F)
           << "Black probability leaked into live-frame slot " << live_slot;
     }
+  }
+}
+
+TEST(CompactSerializer, FR_SER_COMPACT_MAX_LEGAL_ACTIONS_IsTightBound) {
+  EXPECT_EQ(XqGame::kMaxLegalActions, static_cast<size_t>(104));
+}
+
+TEST(CompactSerializer, FR_SER_COMPACT_INPUT_LEN_AppendsActionFeatures) {
+  const XqGame game;
+  const GameHistory history;
+  const XqSerializer dense_serializer;
+  const XqCompactSerializer compact_serializer;
+  const std::vector<float> dense =
+      dense_serializer.SerializeCurrentState(game, history.View());
+  const std::vector<float> compact =
+      compact_serializer.SerializeCurrentState(game, history.View());
+
+  ASSERT_EQ(dense.size(), kDenseStateFeatureSize);
+  ASSERT_EQ(compact.size(), kCompactStateFeatureSize);
+  for (size_t i = 0; i < dense.size(); ++i) {
+    EXPECT_FLOAT_EQ(compact[i], dense[i])
+        << "Compact serializer must keep dense board planes as its prefix.";
+  }
+}
+
+TEST(CompactSerializer, FR_SER_COMPACT_ACTIONS_SortedByCanonicalFromTo) {
+  const XqGame game(kBlack);
+  const GameHistory history;
+  const XqCompactSerializer serializer;
+  const std::vector<float> compact =
+      serializer.SerializeCurrentState(game, history.View());
+  const std::vector<ExpectedCompactAction> expected =
+      ExpectedCompactActions(game);
+  if (expected.empty()) {
+    GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
+                    "GAME-ACTION-IMPL is in.";
+  }
+
+  ASSERT_EQ(compact.size(), kCompactStateFeatureSize);
+  const size_t base = kDenseStateFeatureSize;
+  for (size_t i = 0; i < expected.size(); ++i) {
+    const size_t slot = base + i * kCompactActionFeatureWidth;
+    EXPECT_FLOAT_EQ(compact[slot], 1.0F);
+    EXPECT_FLOAT_EQ(compact[slot + 1], expected[i].from_feature);
+    EXPECT_FLOAT_EQ(compact[slot + 2], expected[i].to_feature);
+    if (i > 0) {
+      EXPECT_LT(expected[i - 1].policy_index, expected[i].policy_index);
+    }
+  }
+  for (size_t i = expected.size(); i < XqGame::kMaxLegalActions; ++i) {
+    const size_t slot = base + i * kCompactActionFeatureWidth;
+    EXPECT_FLOAT_EQ(compact[slot], 0.0F);
+    EXPECT_FLOAT_EQ(compact[slot + 1], 0.0F);
+    EXPECT_FLOAT_EQ(compact[slot + 2], 0.0F);
+  }
+}
+
+TEST(CompactSerializer, FR_SER_COMPACT_POLICY_PadsSortedTargets) {
+  const XqGame game(kBlack);
+  const std::vector<XqA> actions = ValidActions(game);
+  if (actions.empty()) {
+    GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
+                    "GAME-ACTION-IMPL is in.";
+  }
+  std::vector<float> pi;
+  pi.reserve(actions.size());
+  for (size_t i = 0; i < actions.size(); ++i) {
+    pi.push_back(static_cast<float>(i + 1));
+  }
+
+  const TrainingTarget target{0.5F, pi};
+  const XqCompactSerializer serializer;
+  const ::az::game::api::CompactPolicyTargetBlob blob =
+      serializer.SerializePolicyOutput(game, target);
+  const std::vector<ExpectedCompactAction> expected =
+      ExpectedCompactActions(game);
+
+  EXPECT_FLOAT_EQ(blob.value, target.z);
+  EXPECT_EQ(blob.count, expected.size());
+  ASSERT_EQ(blob.legal_indices.size(), XqGame::kMaxLegalActions);
+  ASSERT_EQ(blob.values.size(), XqGame::kMaxLegalActions);
+
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_EQ(blob.legal_indices[i], expected[i].policy_index);
+    EXPECT_FLOAT_EQ(blob.values[i], pi[expected[i].valid_action_index]);
+  }
+  for (size_t i = expected.size(); i < XqGame::kMaxLegalActions; ++i) {
+    EXPECT_EQ(blob.legal_indices[i],
+              ::az::game::api::CompactPolicyTargetBlob::kPaddingSlot);
+    EXPECT_FLOAT_EQ(blob.values[i], 0.0F);
   }
 }
 

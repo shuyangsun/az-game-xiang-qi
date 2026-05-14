@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <span>
 #include <vector>
 
 #include "alpha-zero-api/policy_output.h"
@@ -13,6 +14,8 @@
 namespace az::game::xq {
 namespace {
 
+using ::az::game::api::CompactPolicyOutputBlob;
+using ::az::game::api::CompactPolicyTargetBlob;
 using ::az::game::api::Evaluation;
 using ::az::game::api::TrainingTarget;
 
@@ -159,6 +162,105 @@ TEST(Deserializer, FR_DES_ROUNDTRIP_RecoversValueAndProbabilities) {
     EXPECT_TRUE(ApproxEqual(recovered->probabilities[i], pi[i]))
         << "Probability mismatch at index " << i << ": "
         << recovered->probabilities[i] << " != " << pi[i];
+  }
+}
+
+TEST(CompactDeserializer, FR_DES_COMPACT_WRONG_SIZE_RejectsMismatchedRows) {
+  const XqGame game;
+  const XqCompactDeserializer deserializer;
+  const std::vector<size_t> indices(1, 0);
+  const std::vector<float> values;
+  const CompactPolicyOutputBlob output{0.0F, std::span<const size_t>{indices},
+                                       std::span<const float>{values}};
+  const XqResult<Evaluation> result = deserializer.Deserialize(game, output);
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), XqError::kInvalidPolicyOutputSize);
+}
+
+TEST(CompactDeserializer, FR_DES_COMPACT_WRONG_SIZE_RejectsMissingActions) {
+  const XqGame game;
+  const std::vector<XqA> actions = ValidActions(game);
+  if (actions.empty()) {
+    GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
+                    "GAME-ACTION-IMPL is in.";
+  }
+  const XqCompactDeserializer deserializer;
+  const std::vector<size_t> indices;
+  const std::vector<float> values;
+  const CompactPolicyOutputBlob output{0.0F, std::span<const size_t>{indices},
+                                       std::span<const float>{values}};
+  const XqResult<Evaluation> result = deserializer.Deserialize(game, output);
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), XqError::kInvalidPolicyOutputSize);
+}
+
+TEST(CompactDeserializer, FR_DES_COMPACT_ROUNDTRIP_PaddedSortedPolicy) {
+  const XqGame game(kBlack);
+  const std::vector<XqA> actions = ValidActions(game);
+  if (actions.empty()) {
+    GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
+                    "GAME-ACTION-IMPL is in.";
+  }
+  std::vector<float> pi;
+  pi.reserve(actions.size());
+  float running_sum = 0.0F;
+  for (size_t i = 0; i < actions.size(); ++i) {
+    pi.push_back(1.0F / static_cast<float>(actions.size() + i));
+    running_sum += pi.back();
+  }
+  for (float& v : pi) {
+    v /= running_sum;
+  }
+
+  const TrainingTarget target{-0.25F, pi};
+  const XqCompactSerializer serializer;
+  const CompactPolicyTargetBlob blob =
+      serializer.SerializePolicyOutput(game, target);
+  const CompactPolicyOutputBlob output{
+      blob.value, std::span<const size_t>{blob.legal_indices},
+      std::span<const float>{blob.values}};
+
+  const XqCompactDeserializer deserializer;
+  const XqResult<Evaluation> recovered = deserializer.Deserialize(game, output);
+  ASSERT_TRUE(recovered.has_value());
+  EXPECT_TRUE(ApproxEqual(recovered->value, target.z));
+  ASSERT_EQ(recovered->probabilities.size(), pi.size());
+  for (size_t i = 0; i < pi.size(); ++i) {
+    EXPECT_TRUE(ApproxEqual(recovered->probabilities[i], pi[i]))
+        << "Probability mismatch at index " << i << ": "
+        << recovered->probabilities[i] << " != " << pi[i];
+  }
+}
+
+TEST(CompactDeserializer, FR_DES_COMPACT_ROUNDTRIP_UnpaddedPolicy) {
+  const XqGame game;
+  const std::vector<XqA> actions = ValidActions(game);
+  if (actions.empty()) {
+    GTEST_SKIP() << "ValidActions placeholder still empty; revisit once "
+                    "GAME-ACTION-IMPL is in.";
+  }
+  std::vector<float> pi;
+  pi.reserve(actions.size());
+  for (size_t i = 0; i < actions.size(); ++i) {
+    pi.push_back(static_cast<float>(i + 1));
+  }
+
+  const TrainingTarget target{0.75F, pi};
+  const XqCompactSerializer serializer;
+  const CompactPolicyTargetBlob blob =
+      serializer.SerializePolicyOutput(game, target);
+  const CompactPolicyOutputBlob output{
+      blob.value,
+      std::span<const size_t>{blob.legal_indices.data(), blob.count},
+      std::span<const float>{blob.values.data(), blob.count}};
+
+  const XqCompactDeserializer deserializer;
+  const XqResult<Evaluation> recovered = deserializer.Deserialize(game, output);
+  ASSERT_TRUE(recovered.has_value());
+  EXPECT_FLOAT_EQ(recovered->value, target.z);
+  ASSERT_EQ(recovered->probabilities.size(), pi.size());
+  for (size_t i = 0; i < pi.size(); ++i) {
+    EXPECT_FLOAT_EQ(recovered->probabilities[i], pi[i]);
   }
 }
 

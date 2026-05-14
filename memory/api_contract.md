@@ -31,6 +31,9 @@ instances by value.
   Markov games declare 0. See [history_lookback.md](./history_lookback.md).
 - `kPolicySize : size_t` — cardinality of the full action space,
   ignoring legality. Equals the network's policy-head width.
+- `kMaxLegalActions : size_t` — per-state legal-action ceiling.
+  Dense games may set this equal to `kPolicySize`; compact policy
+  heads use this tighter bound.
 - `kMaxRounds : std::optional<uint32_t>` — self-play hard cap. If set,
   `IsOver()` must return `true` once `CurrentRound() >= *kMaxRounds`.
   Use `std::nullopt` for genuinely unbounded games.
@@ -77,6 +80,10 @@ API library. Concrete games never implement it themselves.
   network is asked to learn. `z` is the actual game outcome from
   `GetScore(state.CurrentPlayer())`. `pi[i]` is the MCTS visit-count
   prior for `game.ValidActions()[i]`.
+- `CompactPolicyTargetBlob` / `CompactPolicyOutputBlob` — compact
+  policy carriers for networks with a policy row sized to
+  `kMaxLegalActions`. They pair each compact row position with the
+  corresponding dense `PolicyIndex` slot.
 
 Deserializers produce `Evaluation`; policy serializers consume
 `TrainingTarget`. Same ordering convention on both.

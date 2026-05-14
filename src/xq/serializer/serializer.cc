@@ -17,24 +17,35 @@ namespace {
 
 using ::az::game::xq::internal::IsRed;
 
-// 14 piece-type planes (7 own + 7 opponent) + 1 side-to-move plane.
-constexpr size_t kNumPlanes = 15;
+struct LegalActionFeature {
+  XqA canonical_action;
+  size_t policy_index;
+  size_t valid_action_index;
+};
 
 constexpr size_t PlaneOffset(size_t plane) noexcept {
   return plane * kBoardCells;
 }
 
-}  // namespace
+constexpr float NormalizeCell(uint8_t cell) noexcept {
+  return static_cast<float>(cell) / static_cast<float>(kBoardCells - 1);
+}
 
-std::vector<float> XqSerializer::SerializeCurrentState(
-    const XqGame& game,
-    ::az::game::api::RingBufferView<XqGame> /*history*/) const noexcept {
-  // Markov game: history view is unused. Layout is plane-major:
+bool LegalActionFeatureLess(const LegalActionFeature& lhs,
+                            const LegalActionFeature& rhs) noexcept {
+  if (lhs.canonical_action.from != rhs.canonical_action.from) {
+    return lhs.canonical_action.from < rhs.canonical_action.from;
+  }
+  return lhs.canonical_action.to < rhs.canonical_action.to;
+}
+
+std::vector<float> SerializeBoardState(const XqGame& game) noexcept {
+  // Layout is plane-major:
   //   planes  0..6: own-piece planes (General .. Soldier)
   //   planes  7..13: opponent-piece planes (same order)
   //   plane   14:    side-to-move plane (all 1s if Red to move, else 0)
   // Each plane holds 90 cells in row-major (`r * 9 + c`) order.
-  std::vector<float> out(kNumPlanes * kBoardCells, 0.0F);
+  std::vector<float> out(kDenseStateFeatureSize, 0.0F);
 
   // Use the canonical board so own pieces are positive (codes 1..7)
   // and opponent pieces are negative (codes -1..-7).
@@ -53,6 +64,47 @@ std::vector<float> XqSerializer::SerializeCurrentState(
   }
 
   return out;
+}
+
+std::vector<LegalActionFeature> SortedLegalActionFeatures(
+    const XqGame& game) noexcept {
+  std::array<XqA, XqGame::kMaxLegalActions> actions{};
+  const size_t count = game.ValidActionsInto(actions);
+  std::vector<LegalActionFeature> features;
+  features.reserve(count);
+  for (size_t i = 0; i < count; ++i) {
+    const XqA canonical_action = game.CanonicalAction(actions[i]);
+    features.push_back(LegalActionFeature{
+        canonical_action, game.PolicyIndex(canonical_action), i});
+  }
+  std::sort(features.begin(), features.end(), LegalActionFeatureLess);
+  return features;
+}
+
+void AppendCompactActionFeatures(const XqGame& game,
+                                 std::vector<float>& out) noexcept {
+  const std::vector<LegalActionFeature> features =
+      SortedLegalActionFeatures(game);
+  for (size_t i = 0; i < XqGame::kMaxLegalActions; ++i) {
+    if (i < features.size()) {
+      out.push_back(1.0F);
+      out.push_back(NormalizeCell(features[i].canonical_action.from));
+      out.push_back(NormalizeCell(features[i].canonical_action.to));
+    } else {
+      out.push_back(0.0F);
+      out.push_back(0.0F);
+      out.push_back(0.0F);
+    }
+  }
+}
+
+}  // namespace
+
+std::vector<float> XqSerializer::SerializeCurrentState(
+    const XqGame& game,
+    ::az::game::api::RingBufferView<XqGame> /*history*/) const noexcept {
+  // Markov game: history view is unused.
+  return SerializeBoardState(game);
 }
 
 std::vector<float> XqSerializer::SerializePolicyOutput(
@@ -80,6 +132,47 @@ std::vector<float> XqSerializer::SerializePolicyOutput(
     }
   }
   return out;
+}
+
+std::vector<float> XqCompactSerializer::SerializeCurrentState(
+    const XqGame& game,
+    ::az::game::api::RingBufferView<XqGame> /*history*/) const noexcept {
+  // Markov game: history view is unused. The compact layout keeps the
+  // dense board-state planes as a prefix, then appends the deterministic
+  // legal-action feature row used to align the compact policy head.
+  std::vector<float> out = SerializeBoardState(game);
+  out.reserve(kCompactStateFeatureSize);
+  AppendCompactActionFeatures(game, out);
+  return out;
+}
+
+::az::game::api::CompactPolicyTargetBlob
+XqCompactSerializer::SerializePolicyOutput(
+    const XqGame& game,
+    const ::az::game::api::TrainingTarget& target) const noexcept {
+  const std::vector<LegalActionFeature> features =
+      SortedLegalActionFeatures(game);
+  ::az::game::api::CompactPolicyTargetBlob blob;
+  blob.value = target.z;
+  blob.count = features.size();
+  blob.legal_indices.reserve(XqGame::kMaxLegalActions);
+  blob.values.reserve(XqGame::kMaxLegalActions);
+
+  for (size_t i = 0; i < features.size(); ++i) {
+    const size_t target_index = features[i].valid_action_index;
+    const float value =
+        target_index < target.pi.size() ? target.pi[target_index] : 0.0F;
+    blob.legal_indices.push_back(features[i].policy_index);
+    blob.values.push_back(value);
+  }
+
+  for (size_t i = features.size(); i < XqGame::kMaxLegalActions; ++i) {
+    blob.legal_indices.push_back(
+        ::az::game::api::CompactPolicyTargetBlob::kPaddingSlot);
+    blob.values.push_back(0.0F);
+  }
+
+  return blob;
 }
 
 }  // namespace az::game::xq

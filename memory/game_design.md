@@ -43,6 +43,7 @@ enum class XqError : uint8_t { /* see below */ };
 ```cpp
 static constexpr size_t   kHistoryLookback = 0;
 static constexpr size_t   kPolicySize      = 90 * 90;  // 8100
+static constexpr size_t   kMaxLegalActions = 104;
 static constexpr std::optional<uint32_t> kMaxRounds = 300;
 ```
 
@@ -53,6 +54,10 @@ static constexpr std::optional<uint32_t> kMaxRounds = 300;
 - **`kPolicySize = 8100`**. Action space cardinality is
   `from_cell * 90 + to_cell`. The mapping is dense (most slots
   are illegal) but trivial to compute and bijective.
+- **`kMaxLegalActions = 104`**. A reachable state has at most
+  104 legal moves, so compact policy heads and action-feature rows
+  use this fixed ceiling while the dense policy layout remains
+  available.
 - **`kMaxRounds = 300`**. Hard self-play cap (150 per side).
   Average human Xiang Qi games run ~80–120 plies; 300 leaves
   generous headroom while bounding `action_history_` and
@@ -135,15 +140,21 @@ validate; the engine guarantees only valid actions.
 
 ## Serializer / deserializer choice
 
-- **Policy-output serializer**: use the canonical layout
+- **Dense policy-output serializer**: use the canonical layout
   `[z, p_0, ..., p_{8099}]` (length 8101). Reuse
   `DefaultPolicyOutputSerializer<XqGame>` semantics inside
   `XqSerializer::SerializePolicyOutput`.
-- **Policy-output deserializer**: implement directly because
+- **Dense policy-output deserializer**: implement directly because
   `XqDeserializer` returns `XqError`, not `std::string`. Layout
   matches the serializer; size validation rejects vectors whose
   length is not `kPolicySize + 1`.
-- **State serializer**: custom — see the input encoding section
+- **Compact serializer / deserializer**: keep the same canonical
+  board prefix, append 104 legal-action feature slots to the input,
+  and produce/consume compact policy rows through
+  `CompactPolicyTargetBlob` / `CompactPolicyOutputBlob`. Legal
+  action slots are sorted deterministically by canonical `(from, to)`;
+  unused slots are padded.
+- **Dense state serializer**: custom — see the input encoding section
   in [board_encoding.md](./game_design_details/board_encoding.md).
   14 piece-type planes + 1 side-to-move plane = 15 planes of
   `9 x 10`. Output length 1350 floats.

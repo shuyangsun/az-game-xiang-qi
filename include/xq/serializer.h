@@ -1,6 +1,7 @@
 #ifndef ALPHA_ZERO_GAME_XIANG_QI_INCLUDE_XQ_SERIALIZER_H_
 #define ALPHA_ZERO_GAME_XIANG_QI_INCLUDE_XQ_SERIALIZER_H_
 
+#include <cstddef>
 #include <vector>
 
 #include "alpha-zero-api/policy_output.h"
@@ -9,6 +10,14 @@
 #include "include/xq/game.h"
 
 namespace az::game::xq {
+
+inline constexpr size_t kStateFeaturePlanes = 15;
+inline constexpr size_t kDenseStateFeatureSize =
+    kStateFeaturePlanes * kBoardCells;
+inline constexpr size_t kCompactActionFeatureWidth = 3;
+inline constexpr size_t kCompactStateFeatureSize =
+    kDenseStateFeatureSize +
+    kCompactActionFeatureWidth * XqGame::kMaxLegalActions;
 
 /**
  * @brief Serializes Xiang Qi game state and training
@@ -79,6 +88,42 @@ class XqSerializer : public ::az::game::api::IGameSerializer<XqGame>,
    * @return std::vector<float> Neural network output tensor (flattened).
    */
   [[nodiscard]] std::vector<float> SerializePolicyOutput(
+      const XqGame& game,
+      const ::az::game::api::TrainingTarget& target) const noexcept final;
+};
+
+/**
+ * @brief Compact Xiang Qi serializer for networks whose policy head is
+ * sized to `XqGame::kMaxLegalActions` instead of `XqGame::kPolicySize`.
+ *
+ * The board-state prefix matches `XqSerializer::SerializeCurrentState`.
+ * It then appends 104 fixed legal-action slots, each encoded as:
+ *
+ *   - mask: `1.0` for a real action, `0.0` for padding
+ *   - from: canonical source cell normalized by `kBoardCells - 1`
+ *   - to: canonical destination cell normalized by `kBoardCells - 1`
+ *
+ * Real action slots are sorted by canonical `(from, to)` so the compact
+ * policy row is deterministic and independent of piece-specific move
+ * generation order. Padding slots are all zero.
+ *
+ * `SerializePolicyOutput` returns the same sorted compact row as a
+ * `CompactPolicyTargetBlob`: `count` is the unpadded legal-action count,
+ * vectors are padded to `XqGame::kMaxLegalActions`, and padding indices use
+ * `CompactPolicyTargetBlob::kPaddingSlot`.
+ */
+class XqCompactSerializer
+    : public ::az::game::api::IGameSerializer<XqGame>,
+      public ::az::game::api::ICompactPolicyOutputSerializer<XqGame> {
+ public:
+  XqCompactSerializer() = default;
+  ~XqCompactSerializer() override = default;
+
+  [[nodiscard]] std::vector<float> SerializeCurrentState(
+      const XqGame& game,
+      ::az::game::api::RingBufferView<XqGame> history) const noexcept final;
+
+  [[nodiscard]] ::az::game::api::CompactPolicyTargetBlob SerializePolicyOutput(
       const XqGame& game,
       const ::az::game::api::TrainingTarget& target) const noexcept final;
 };

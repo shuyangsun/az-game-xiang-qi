@@ -48,6 +48,29 @@ class XqDeserializer
       const XqGame& game, std::span<const float> output) const noexcept final;
 };
 
+/**
+ * @brief Deserializes compact policy-head output back into
+ * `ValidActionsInto` order.
+ *
+ * The compact output carries the legal policy indices that were serialized
+ * with the matching state input. Values may be unpadded or padded to
+ * `XqGame::kMaxLegalActions` with
+ * `CompactPolicyTargetBlob::kPaddingSlot`; non-padding entries must cover
+ * exactly the current legal actions in canonical policy-index space.
+ */
+class XqCompactDeserializer
+    : public ::az::game::api::ICompactPolicyOutputDeserializer<XqGame,
+                                                               XqError> {
+ public:
+  XqCompactDeserializer() = default;
+  ~XqCompactDeserializer() override = default;
+
+  [[nodiscard]] XqResult<::az::game::api::Evaluation> Deserialize(
+      const XqGame& game,
+      const ::az::game::api::CompactPolicyOutputBlob& output)
+      const noexcept final;
+};
+
 }  // namespace az::game::xq
 
 #endif  // ALPHA_ZERO_GAME_XIANG_QI_INCLUDE_XQ_DESERIALIZER_H_
