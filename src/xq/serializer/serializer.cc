@@ -106,8 +106,7 @@ void AppendCompactBoardTokens(const XqGame& game,
   }
 }
 
-void AppendRepeatCounter(const XqGame& game,
-                         std::vector<float>& out) noexcept {
+void AppendRepeatCounter(const XqGame& game, std::vector<float>& out) noexcept {
   out.push_back(static_cast<float>(game.CurrentPositionRepeatCount()));
 }
 
