@@ -1,14 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router';
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useXqGame, type Action, type Player } from '../engine';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useXqGame } from '../engine';
+import type { Player } from '../engine';
 import {
   XiangQiBoard,
   GameStatusBar,
   MoveList,
   ControlBar,
   DebugPanel,
-  type Orientation,
 } from '../components/xiangqi';
+import type { Orientation } from '../components/xiangqi';
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -128,7 +129,6 @@ function Home() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         <div className="flex-1 flex flex-col">
           <ControlBar
-            orientation={orientation}
             onToggleOrientation={handleToggleOrientation}
             canUndo={snapshot.currentRound > 0}
             onUndo={() => {

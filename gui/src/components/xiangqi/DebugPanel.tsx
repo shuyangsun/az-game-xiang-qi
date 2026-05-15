@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import type { XqEngine } from '../../engine'
 
 export interface DebugPanelProps {

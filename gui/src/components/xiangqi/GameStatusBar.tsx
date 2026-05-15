@@ -1,4 +1,3 @@
-import React from 'react'
 import type { Player } from '../../engine'
 
 export interface GameStatusBarProps {

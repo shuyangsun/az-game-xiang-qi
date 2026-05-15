@@ -8,10 +8,7 @@ import type { Action, Player, Snapshot } from './engine'
 import { GameStatusBar } from './components/xiangqi/GameStatusBar'
 import { MoveList } from './components/xiangqi/MoveList'
 import { XiangQiBoard } from './components/xiangqi/XiangQiBoard'
-import type {
-  Orientation,
-  PieceStyle,
-} from './components/xiangqi/XiangQiBoard'
+import type { Orientation } from './components/xiangqi/XiangQiBoard'
 
 // ---------------------------------------------------------------------------
 // Board
@@ -28,7 +25,6 @@ export interface KitBoardProps<TSnapshot, TAction> {
   flipped?: boolean
   /** Suppress click handling (e.g. while the AI is thinking). */
   disabled?: boolean
-  pieceStyle?: PieceStyle
 }
 
 export function XiangQiKitBoard({
@@ -37,7 +33,6 @@ export function XiangQiKitBoard({
   className,
   flipped,
   disabled,
-  pieceStyle,
 }: KitBoardProps<Snapshot, Action>) {
   const [selectedCell, setSelectedCell] = useState<number | null>(null)
 
@@ -87,7 +82,6 @@ export function XiangQiKitBoard({
       lastMove={snapshot.lastAction}
       inCheckCell={inCheckCell}
       onCellClick={handleCellClick}
-      pieceStyle={pieceStyle}
       className={className}
     />
   )

@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Action } from '../../engine'
 
-export type PieceStyle = 'char' | 'icon'
 export type Orientation = 'red-bottom' | 'black-bottom'
 
 export interface XiangQiBoardProps {
@@ -12,7 +11,6 @@ export interface XiangQiBoardProps {
   lastMove: Action | null
   inCheckCell: number | null
   onCellClick: (cell: number) => void
-  pieceStyle?: PieceStyle
   className?: string
 }
 
@@ -38,7 +36,6 @@ export function XiangQiBoard({
   lastMove,
   inCheckCell,
   onCellClick,
-  pieceStyle = 'char',
   className,
 }: XiangQiBoardProps) {
   const containerRef = useRef<HTMLDivElement>(null)

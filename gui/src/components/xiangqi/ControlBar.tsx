@@ -1,9 +1,7 @@
-import React, { useState } from 'react'
-import type { Orientation } from './XiangQiBoard'
+import { useState } from 'react'
 import type { Player } from '../../engine'
 
 export interface ControlBarProps {
-  orientation: Orientation
   onToggleOrientation: () => void
   canUndo: boolean
   onUndo: () => void
@@ -11,7 +9,6 @@ export interface ControlBarProps {
 }
 
 export function ControlBar({
-  orientation,
   onToggleOrientation,
   canUndo,
   onUndo,

@@ -90,8 +90,8 @@ export class XqGameWrapper implements XqEngine {
 
     // aug.variantActionCounts is a JS array returned from Embind val::array
     const variantActionCounts: number[] = []
-    for (let i = 0; i < aug.variantActionCounts.length; i++) {
-      variantActionCounts.push(aug.variantActionCounts[i])
+    for (const count of aug.variantActionCounts) {
+      variantActionCounts.push(count)
     }
 
     return {
@@ -113,11 +113,10 @@ export class XqGameWrapper implements XqEngine {
 
     const validActionsRaw = this.gameJs.validActions()
     const validActions: Action[] = []
-    for (let i = 0; i < validActionsRaw.length; i++) {
-      // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    for (const raw of validActionsRaw) {
       validActions.push({
-        from: validActionsRaw[i].from,
-        to: validActionsRaw[i].to,
+        from: raw.from,
+        to: raw.to,
       })
     }
 

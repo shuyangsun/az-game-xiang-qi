@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
-import type { Action, Player, Snapshot, XqEngine, MoveProvider } from './types'
-import { loadXqWasm, type XqWasmConfig } from './xq-wasm'
+import { useState, useCallback, useEffect } from 'react'
+import type { Action, Player, Snapshot, MoveProvider } from './types'
+import { loadXqWasm } from './xq-wasm'
+import type { XqWasmConfig } from './xq-wasm'
 import { XqGameWrapper } from './xq-game'
 
 export interface UseXqGameOptions {
