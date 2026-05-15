@@ -9,9 +9,14 @@ serves two audiences:
    (see [main_binary.md](./main_binary.md)).
 2. **In the upstream AlphaZero repo (component reuse)**: the same
    board renderer and game-state primitives are consumed as a
-   library so a human can play against the trained model. The
-   AlphaZero repo plugs in its own move source (the network +
-   MCTS) in place of the second human.
+   "game kit" so a human can play against the trained model. The
+   model itself is CUDA-only and far too large for the browser, so
+   the AlphaZero repo runs a C++ inference daemon
+   (`alphazero_serve`) and plugs a `fetch`-based `MoveProvider`
+   into `useXqGame` for the AI side. See
+   [alpha-zero/docs/gui_design.md](../../alpha-zero/docs/gui_design.md)
+   for the consuming side, including the `GameKit` interface this
+   repo conforms to.
 
 Both audiences must work from the **same** `XqGame` C++
 implementation — duplicating the rules in TypeScript is a
@@ -406,29 +411,68 @@ help overlay listing the action notation.
 
 ## Reuse contract for the AlphaZero repo
 
-The AlphaZero repo will import this UI as a component. To avoid the
-classic "extract it later" trap, lay it out for reuse from day one:
+The AlphaZero repo imports this UI as a **game kit** — one
+TypeScript module that bundles the engine hook, presentational
+components, action codec, and a server wire-format encoder behind a
+single `GameKit` interface defined upstream
+([alpha-zero/docs/gui_design.md](../../alpha-zero/docs/gui_design.md),
+"Game kit: the generic seam"). To avoid the classic "extract it
+later" trap, lay it out for reuse from day one:
 
-- **Public exports** live under `gui/src/components/xiangqi/index.ts`
-  and `gui/src/engine/index.ts`. Anything not re-exported there is
-  a private implementation detail.
-- The AlphaZero repo replaces the move source for one side. To
-  support that, `useXqGame()` accepts an optional
-  `moveProvider: { red?: MoveProvider; black?: MoveProvider }`. A
-  `MoveProvider` returns a `Promise<Action>` given the current
+- **One entry point**: `gui/src/kit.ts` exports a `GameKit`-
+  conforming object composing the engine and component modules
+  listed in this doc. The AlphaZero repo resolves it through a
+  tsconfig path alias (`#game-kit`) pointing at this file. To
+  swap games on that side, the AlphaZero repo rewrites the alias
+  to a sibling game's kit; nothing in this repo needs to know.
+- **Public exports** live under `gui/src/components/xiangqi/index.ts`,
+  `gui/src/engine/index.ts`, and `gui/src/kit.ts`. Anything not
+  re-exported there is a private implementation detail.
+- **AI move source**: `useXqGame()` accepts an optional
+  `moveProvider: { red?: MoveProvider; black?: MoveProvider }`.
+  A `MoveProvider` returns a `Promise<Action>` given the current
   snapshot. Default for both sides is "human via clicks". The
-  AlphaZero repo passes a `MoveProvider` that calls its
-  ONNX/MCTS pipeline for the AI side and leaves the other as
-  human.
-- The board, status bar, and move list have no dependency on the
-  debug panel. The AlphaZero repo opts the debug panel out by not
-  importing it.
-- The WASM module path is configurable
-  (`xq-wasm.ts: loadXqWasm({ wasmUrl })`) so the consuming app can
-  serve `xq.wasm` from wherever it likes.
-- Styling: components accept `className` overrides and read sizing
-  via CSS variables (`--xq-board-cell-size`, `--xq-piece-size`,
-  …). No hard pixel sizes inside components.
+  AlphaZero repo passes a `MoveProvider` that `fetch`-es its
+  `alphazero_serve` daemon (CUDA-loaded model + MCTS) for the AI
+  side and leaves the other as human. The hook stays agnostic
+  about where the action came from.
+- **Server wire encoder**: `kit.ts` exports
+  `encodeSnapshotForServer(snapshot) -> { board, current_player,
+  current_round, history }`. The AlphaZero C++ daemon rehydrates
+  an `XqGame` from this payload via the same `bindings.cc` shim
+  used by the browser, keeping one source of truth for the
+  representation. `XqGame::kHistoryLookback == 0` means `history`
+  is always `[]` for XQ today.
+- **Debug panel exclusion**: board, status bar, and move list
+  have no dependency on the debug panel. `kit.ts` does **not**
+  expose `<DebugPanel>` in its `GameKit` object, so the AlphaZero
+  shell cannot accidentally import it.
+- **WASM module path** is configurable
+  (`xq-wasm.ts: loadXqWasm({ wasmUrl, jsUrl })`) so the consuming
+  app can serve `xq.wasm` from wherever it likes. The kit's
+  defaults are `'/wasm/xq.wasm'` and `'/wasm/xq.js'`.
+- **Styling**: components accept `className` overrides and read
+  sizing via CSS variables (`--xq-board-cell-size`,
+  `--xq-piece-size`, …). No hard pixel sizes inside components.
+
+### Remaining reuse-contract work
+
+The kit-export contract above is partially in place (`moveProvider`,
+`loadXqWasm({wasmUrl, jsUrl})`, and the component `index.ts`
+barrels already exist). The remaining items, all additive:
+
+1. **Add `gui/src/kit.ts`.** Composes `useXqGame`,
+   `<XiangQiBoard>`, `<GameStatusBar>`, `<MoveList>`,
+   `actionToString`, `actionFromString`, and a new
+   `encodeSnapshotForServer` into one `GameKit`-conforming object.
+2. **Accept `className` props** on `<XiangQiBoard>`,
+   `<GameStatusBar>`, and `<MoveList>`. Today these hard-code
+   Tailwind classes; the AlphaZero shell needs layout-level
+   overrides.
+3. **Read cell size from `--xq-board-cell-size`** instead of the
+   `const cellSize = 50` constant in `<XiangQiBoard>`. Lets the
+   AlphaZero shell shrink the board for its side-panel-heavy
+   `<GamePlayPage>` layout.
 
 ## Build, dev, and test workflow
 
