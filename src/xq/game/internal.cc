@@ -1,6 +1,7 @@
 #include "src/xq/game/internal.h"
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <span>

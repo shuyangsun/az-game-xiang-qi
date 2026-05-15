@@ -41,6 +41,16 @@
       "cacheVariables": {
         "BUILD_TESTING": "ON"
       }
+    },
+    {
+      "name": "wasm",
+      "displayName": "WASM",
+      "binaryDir": "${sourceDir}/build/wasm",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+        "BUILD_TESTING": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -63,6 +73,12 @@
       "name": "release-test",
       "displayName": "Release (Tests)",
       "configurePreset": "release-test"
+    },
+    {
+      "name": "wasm",
+      "displayName": "WASM",
+      "configurePreset": "wasm",
+      "targets": ["xq_wasm"]
     }
   ],
   "testPresets": [

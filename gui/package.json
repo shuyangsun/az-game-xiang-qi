@@ -6,6 +6,7 @@
     "#/*": "./src/*"
   },
   "scripts": {
+    "wasm:build": "cd .. && docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) emscripten/emsdk:latest bash -c 'emcmake cmake -S . -B build/wasm -DCMAKE_BUILD_TYPE=Release && cmake --build build/wasm --target xq_wasm'",
     "dev": "bun --bun vite dev",
     "build": "bun --bun vite build",
     "serve": "bun --bun vite preview",

@@ -57,7 +57,7 @@ size_t XqGame::ValidActionsInto(
     scratch[a.to] = mover;
     scratch[a.from] = 0;
     const bool legal =
-        !IsInCheck(scratch, current_player_) && !IsFlyingGenerals(scratch);
+        !internal::IsInCheck(scratch, current_player_) && !IsFlyingGenerals(scratch);
     scratch[a.from] = mover;
     scratch[a.to] = captured;
     if (legal) out[write++] = a;

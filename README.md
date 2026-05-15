@@ -4,6 +4,8 @@ C++ implementation of Xiang Qi (Chinese Chess) game logic for the [alpha-zero-ap
 
 ## Getting Started
 
+### Building the Game Engine (C++)
+
 ```bash
 # Debug
 cmake --preset debug && cmake --build --preset debug
@@ -16,6 +18,25 @@ cmake --preset release && cmake --build --preset release
 ./build/debug/xq    # Debug build
 ./build/release/xq  # Release build
 ```
+
+### Running the GUI (Browser)
+
+The repository includes a web-based GUI built with [TanStack Start](https://tanstack.com/start) and React. It relies on the game engine compiled to WebAssembly (WASM).
+
+```bash
+cd gui
+
+# 1. Build the WASM engine (requires Docker to use the Emscripten image)
+bun run wasm:build
+
+# 2. Install frontend dependencies
+bun install
+
+# 3. Start the development server
+bun run dev
+```
+
+Open `http://localhost:5173` to play Xiang Qi against yourself or inspect the `[Debug Panel]` output.
 
 ## Tests
 

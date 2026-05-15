@@ -314,6 +314,11 @@ class XqGame {
   [[nodiscard]] bool IsOver() const noexcept;
 
   /**
+   * @brief True if the current player's General is in check.
+   */
+  [[nodiscard]] bool IsInCheck() const noexcept;
+
+  /**
    * @brief Score for `player` in the current state.
    *
    * Returns `+1.0` for the winner, `-1.0` for the loser, `0.0` for

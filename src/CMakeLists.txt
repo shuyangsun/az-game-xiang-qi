@@ -1,4 +1,5 @@
 add_subdirectory(xq)
+add_subdirectory(wasm)
 
 add_executable(xq main.cc)
 set_target_properties(xq PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")

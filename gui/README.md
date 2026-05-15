@@ -1,6 +1,23 @@
-# Getting Started
+# Xiang Qi Web GUI
 
-To run this application:
+This is the browser-based interface for the Xiang Qi AlphaZero game engine. It uses a WebAssembly (WASM) compilation of the C++ `XqGame` engine to ensure the client-side game logic perfectly matches the training environment.
+
+## Getting Started
+
+To run this application, you must first build the WASM engine, then install dependencies and start the dev server.
+
+### 1. Build the WASM Engine
+
+The build process uses Docker and the official Emscripten image to cross-compile the C++ source into `xq.wasm` and `xq.js`.
+
+```bash
+# From the `gui/` directory:
+bun run wasm:build
+```
+
+This generates the bindings and places them in `public/wasm/`.
+
+### 2. Run the App
 
 ```bash
 bun install

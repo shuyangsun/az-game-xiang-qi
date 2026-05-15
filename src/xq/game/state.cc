@@ -92,6 +92,10 @@ uint8_t XqGame::CurrentPositionRepeatCount() const noexcept {
   return count;
 }
 
+bool XqGame::IsInCheck() const noexcept {
+  return internal::IsInCheck(board_, current_player_);
+}
+
 bool XqGame::IsOver() const noexcept {
   // Termination priority — see
   // memory/game_rules_details/termination.md:
