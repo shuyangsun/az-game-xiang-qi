@@ -2,9 +2,10 @@ import React, { useEffect, useRef } from 'react'
 
 export interface MoveListProps {
   moves: string[]
+  className?: string
 }
 
-export function MoveList({ moves }: MoveListProps) {
+export function MoveList({ moves, className }: MoveListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -14,7 +15,12 @@ export function MoveList({ moves }: MoveListProps) {
   }, [moves])
 
   return (
-    <div className="flex flex-col border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 w-64 h-full shadow-sm transition-colors">
+    <div
+      className={
+        className ??
+        'flex flex-col border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 w-64 h-full shadow-sm transition-colors'
+      }
+    >
       <div className="bg-slate-100 dark:bg-slate-900 p-2 font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
         Move History
       </div>

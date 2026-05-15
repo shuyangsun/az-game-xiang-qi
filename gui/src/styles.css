@@ -13,3 +13,10 @@ body,
 body {
   margin: 0;
 }
+
+:root {
+  /* Side length, in px, of a single Xiang Qi board cell. Read by
+     <XiangQiBoard> via getComputedStyle at mount. Override on an
+     ancestor element to shrink the board for tighter layouts. */
+  --xq-board-cell-size: 50px;
+}

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import type { Action } from '../../engine'
 
 export type PieceStyle = 'char' | 'icon'
@@ -13,10 +13,22 @@ export interface XiangQiBoardProps {
   inCheckCell: number | null
   onCellClick: (cell: number) => void
   pieceStyle?: PieceStyle
+  className?: string
 }
 
 const RED_CHARS = ['', '帥', '仕', '相', '馬', '車', '砲', '兵']
 const BLACK_CHARS = ['', '將', '士', '象', '傌', '俥', '炮', '卒']
+
+const DEFAULT_CELL_SIZE = 50
+const CELL_SIZE_VAR = '--xq-board-cell-size'
+
+function readCellSize(el: Element | null): number {
+  if (!el) return DEFAULT_CELL_SIZE
+  const raw = getComputedStyle(el).getPropertyValue(CELL_SIZE_VAR).trim()
+  if (!raw) return DEFAULT_CELL_SIZE
+  const parsed = parseFloat(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_CELL_SIZE
+}
 
 export function XiangQiBoard({
   board,
@@ -27,8 +39,15 @@ export function XiangQiBoard({
   inCheckCell,
   onCellClick,
   pieceStyle = 'char',
+  className,
 }: XiangQiBoardProps) {
-  const cellSize = 50
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [cellSize, setCellSize] = useState<number>(DEFAULT_CELL_SIZE)
+
+  useEffect(() => {
+    setCellSize(readCellSize(containerRef.current))
+  }, [])
+
   const padding = 30
   const width = cellSize * 8 + padding * 2
   const height = cellSize * 9 + padding * 2
@@ -287,7 +306,10 @@ export function XiangQiBoard({
   }
 
   return (
-    <div className="flex justify-center select-none">
+    <div
+      ref={containerRef}
+      className={className ?? 'flex justify-center select-none'}
+    >
       <svg
         width={width}
         height={height}

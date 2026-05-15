@@ -8,6 +8,7 @@ export interface GameStatusBarProps {
   inCheck: boolean
   isOver: boolean
   score: { red: number; black: number }
+  className?: string
 }
 
 export function GameStatusBar({
@@ -17,6 +18,7 @@ export function GameStatusBar({
   inCheck,
   isOver,
   score,
+  className,
 }: GameStatusBarProps) {
   const playerLabel = currentPlayer === 'red' ? '紅 (Red)' : '黑 (Black)'
   const playerColor =
@@ -30,7 +32,12 @@ export function GameStatusBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors">
+    <div
+      className={
+        className ??
+        'flex flex-wrap items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors'
+      }
+    >
       <div className="flex items-center gap-4">
         <div className={`text-lg font-bold ${isOver ? 'text-slate-900 dark:text-slate-100' : playerColor}`}>
           {statusMsg}
