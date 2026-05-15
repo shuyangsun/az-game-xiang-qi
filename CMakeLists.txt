@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.26)
 
 project(
   XiangQi
-  VERSION 0.2.6
+  VERSION 0.2.7
   LANGUAGES CXX)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
