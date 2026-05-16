@@ -1,4 +1,6 @@
 import type { Player } from '../../engine'
+import { Badge } from '#/components/ui/badge'
+import { cn } from '#/lib/utils'
 
 export interface GameStatusBarProps {
   currentPlayer: Player
@@ -19,40 +21,53 @@ export function GameStatusBar({
   score,
   className,
 }: GameStatusBarProps) {
-  const playerLabel = currentPlayer === 'red' ? '紅 (Red)' : '黑 (Black)'
-  const playerColor =
-    currentPlayer === 'red' ? 'text-red-600 dark:text-red-500' : 'text-slate-800 dark:text-slate-200'
-
-  let statusMsg = `Side to move: ${playerLabel}`
+  let statusLabel: string
+  let statusKind: 'turn' | 'over'
   if (isOver) {
-    if (score.red > score.black) statusMsg = 'Winner: 紅 (Red)'
-    else if (score.black > score.red) statusMsg = 'Winner: 黑 (Black)'
-    else statusMsg = 'Draw'
+    statusKind = 'over'
+    if (score.red > score.black) statusLabel = 'Red wins'
+    else if (score.black > score.red) statusLabel = 'Black wins'
+    else statusLabel = 'Draw'
+  } else {
+    statusKind = 'turn'
+    statusLabel = currentPlayer === 'red' ? '紅 Red to move' : '黑 Black to move'
   }
+
+  const turnDotColor =
+    currentPlayer === 'red' ? 'var(--xq-red)' : 'var(--xq-black)'
 
   return (
     <div
-      className={
-        className ??
-        'flex flex-wrap items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors'
-      }
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-card/40',
+        className,
+      )}
     >
-      <div className="flex items-center gap-4">
-        <div className={`text-lg font-bold ${isOver ? 'text-slate-900 dark:text-slate-100' : playerColor}`}>
-          {statusMsg}
-        </div>
-        {inCheck && !isOver && (
-          <div className="px-2 py-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-sm font-semibold rounded border border-red-200 dark:border-red-800">
-            CHECK
+      <div className="flex items-center gap-3">
+        {statusKind === 'turn' ? (
+          <div className="flex items-center gap-2">
+            <span
+              className="size-3 rounded-full ring-1 ring-black/20 dark:ring-white/15 shadow-xs"
+              style={{ backgroundColor: turnDotColor }}
+              aria-hidden
+            />
+            <span className="text-base font-semibold">{statusLabel}</span>
           </div>
+        ) : (
+          <span className="text-base font-semibold">{statusLabel}</span>
+        )}
+        {inCheck && !isOver && (
+          <Badge variant="destructive" className="uppercase tracking-wide">
+            Check
+          </Badge>
         )}
         {repeatCount > 1 && !isOver && (
-          <div className="px-2 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-sm font-semibold rounded border border-amber-200 dark:border-amber-800">
-            Position repeated {repeatCount}x
-          </div>
+          <Badge variant="warning">Repeated ×{repeatCount}</Badge>
         )}
       </div>
-      <div className="text-slate-500 dark:text-slate-400 font-medium">Round: {currentRound}</div>
+      <div className="text-sm text-muted-foreground font-mono">
+        Round {currentRound}
+      </div>
     </div>
   )
 }

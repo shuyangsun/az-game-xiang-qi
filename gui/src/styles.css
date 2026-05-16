@@ -1,5 +1,113 @@
 @import 'tailwindcss';
 
+/* Class-based dark mode: any element under `.dark` gets the dark
+   variant. <ThemeToggle> flips `<html class="dark">`. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* shadcn theme tokens — OKLCH for hue stability across the duotone scale.
+   Identical names to the alpha-zero shell so the kit blends with the host
+   when embedded under `#game-kit`. */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+
+  /* Xiang Qi board surface — warm parchment in light mode, deep slate
+     in dark mode. Read by the board SVG via getComputedStyle so the
+     piece gradient base colour stays in sync with the surface. */
+  --xq-board-surface: oklch(0.965 0.025 80);
+  --xq-board-surface-edge: oklch(0.935 0.04 80);
+  --xq-board-ink: oklch(0.32 0.01 60);
+  --xq-board-ink-muted: oklch(0.55 0.01 60);
+  --xq-piece-face: oklch(0.95 0.02 80);
+  --xq-piece-face-edge: oklch(0.85 0.04 80);
+  --xq-red: oklch(0.55 0.21 28);
+  --xq-black: oklch(0.27 0.02 60);
+  --xq-last-move: oklch(0.7 0.16 220);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+
+  --xq-board-surface: oklch(0.27 0.015 60);
+  --xq-board-surface-edge: oklch(0.21 0.015 60);
+  --xq-board-ink: oklch(0.82 0.01 60);
+  --xq-board-ink-muted: oklch(0.62 0.01 60);
+  --xq-piece-face: oklch(0.31 0.015 60);
+  --xq-piece-face-edge: oklch(0.22 0.015 60);
+  --xq-red: oklch(0.72 0.2 28);
+  --xq-black: oklch(0.92 0.01 60);
+  --xq-last-move: oklch(0.78 0.14 220);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -12,11 +120,43 @@ body,
 
 body {
   margin: 0;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
 }
 
 :root {
   /* Side length, in px, of a single Xiang Qi board cell. Read by
      <XiangQiBoard> via getComputedStyle at mount. Override on an
      ancestor element to shrink the board for tighter layouts. */
-  --xq-board-cell-size: 50px;
+  --xq-board-cell-size: 56px;
+}
+
+/* Clickable affordance: native HTML buttons, links, summaries, and
+   anything an ARIA role marks as interactive get a pointer. Tailwind's
+   preflight removes the UA pointer cursor on buttons; this puts it back
+   for everything that is actually clickable. Opt out per-element with
+   `cursor-default` / `cursor-not-allowed`. */
+button:not(:disabled),
+summary,
+label[for],
+select:not(:disabled),
+a[href],
+[role='button']:not([aria-disabled='true']),
+[role='link']:not([aria-disabled='true']),
+[role='tab']:not([aria-disabled='true']),
+[role='menuitem']:not([aria-disabled='true']),
+[role='menuitemcheckbox']:not([aria-disabled='true']),
+[role='menuitemradio']:not([aria-disabled='true']),
+[role='option']:not([aria-disabled='true']),
+[role='switch']:not([aria-disabled='true']),
+[role='checkbox']:not([aria-disabled='true']),
+[role='radio']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
 }

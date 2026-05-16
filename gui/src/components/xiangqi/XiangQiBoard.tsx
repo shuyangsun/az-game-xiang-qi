@@ -17,8 +17,33 @@ export interface XiangQiBoardProps {
 const RED_CHARS = ['', '帥', '仕', '相', '馬', '車', '砲', '兵']
 const BLACK_CHARS = ['', '將', '士', '象', '傌', '俥', '炮', '卒']
 
-const DEFAULT_CELL_SIZE = 50
+const DEFAULT_CELL_SIZE = 56
 const CELL_SIZE_VAR = '--xq-board-cell-size'
+
+// Authentic Xiangqi position marks — pawn launch points and the four
+// cannon stations. Drawn as small corner brackets at each listed
+// intersection; bracket count drops to two on the file edges so the
+// marks never poke past the board.
+const POSITION_MARKERS: ReadonlyArray<readonly [row: number, col: number]> = [
+  // red cannons
+  [2, 1],
+  [2, 7],
+  // red pawns
+  [3, 0],
+  [3, 2],
+  [3, 4],
+  [3, 6],
+  [3, 8],
+  // black pawns
+  [6, 0],
+  [6, 2],
+  [6, 4],
+  [6, 6],
+  [6, 8],
+  // black cannons
+  [7, 1],
+  [7, 7],
+]
 
 function readCellSize(el: Element | null): number {
   if (!el) return DEFAULT_CELL_SIZE
@@ -45,21 +70,21 @@ export function XiangQiBoard({
     setCellSize(readCellSize(containerRef.current))
   }, [])
 
-  const padding = 30
+  const padding = Math.round(cellSize * 0.6)
   const width = cellSize * 8 + padding * 2
   const height = cellSize * 9 + padding * 2
 
   const isRedBottom = orientation === 'red-bottom'
 
-  // Map logical (row, col) to SVG (x, y)
+  // Maps logical (row, col) — row 0 = red's home rank — to SVG (x, y).
+  // Orientation rotates the board 180° (both axes), but the river always
+  // sits visually between rows 4 and 5 in SVG-space, so the per-file
+  // line splits use direct y-coords below rather than going through this
+  // helper a second time (that mapping is what made the flipped board
+  // paint inner files straight through the river).
   const getCoords = (row: number, col: number) => {
-    // If red is bottom, row 0 (red home) is at the bottom (y = 9).
     const visualRow = isRedBottom ? 9 - row : row
-    const visualCol = isRedBottom ? col : 8 - col // usually Black is flipped entirely or just Y?
-    // Standard Xiang Qi coordinates: Black plays from top. If Red plays from bottom, file 'a' is left.
-    // In Chinese notation, right-to-left for own side, but ActionToString uses a-i (0-8) consistently.
-    // Let's just flip both axes or just Y?
-    // Usually, orientation flips the board 180 degrees. So visualCol = isRedBottom ? col : 8 - col.
+    const visualCol = isRedBottom ? col : 8 - col
     return {
       x: padding + visualCol * cellSize,
       y: padding + visualRow * cellSize,
@@ -68,51 +93,57 @@ export function XiangQiBoard({
 
   const getCellIdx = (row: number, col: number) => row * 9 + col
 
-  // Generate grid lines
-  const lines = []
-  // Vertical lines
+  // River always sits between visual rows 4 and 5 in SVG-y. Computing
+  // the gap from raw SVG coordinates — not from the orientation-flipped
+  // logical-row mapping — keeps inner files from crossing the river
+  // when the board is flipped.
+  const riverUpperY = padding + 4 * cellSize
+  const riverLowerY = padding + 5 * cellSize
+  const topY = padding
+  const bottomY = padding + 9 * cellSize
+
+  const lines: Array<React.ReactNode> = []
+
   for (let c = 0; c < 9; c++) {
-    const top = getCoords(0, c)
-    const bottom = getCoords(9, c)
+    const x = padding + (isRedBottom ? c : 8 - c) * cellSize
     if (c === 0 || c === 8) {
-      // Outer files go all the way
       lines.push(
         <line
           key={`v${c}`}
-          x1={top.x}
-          y1={top.y}
-          x2={bottom.x}
-          y2={bottom.y}
-          stroke="black"
+          x1={x}
+          y1={topY}
+          x2={x}
+          y2={bottomY}
+          stroke="var(--xq-board-ink)"
+          strokeWidth="1.2"
         />,
       )
     } else {
-      // Inner files break at the river
-      const riverTop = getCoords(isRedBottom ? 4 : 5, c)
-      const riverBottom = getCoords(isRedBottom ? 5 : 4, c)
       lines.push(
         <line
           key={`vt${c}`}
-          x1={top.x}
-          y1={top.y}
-          x2={riverTop.x}
-          y2={riverTop.y}
-          stroke="black"
+          x1={x}
+          y1={topY}
+          x2={x}
+          y2={riverUpperY}
+          stroke="var(--xq-board-ink)"
+          strokeWidth="1.2"
         />,
       )
       lines.push(
         <line
           key={`vb${c}`}
-          x1={riverBottom.x}
-          y1={riverBottom.y}
-          x2={bottom.x}
-          y2={bottom.y}
-          stroke="black"
+          x1={x}
+          y1={riverLowerY}
+          x2={x}
+          y2={bottomY}
+          stroke="var(--xq-board-ink)"
+          strokeWidth="1.2"
         />,
       )
     }
   }
-  // Horizontal lines
+
   for (let r = 0; r < 10; r++) {
     const left = getCoords(r, 0)
     const right = getCoords(r, 8)
@@ -123,12 +154,13 @@ export function XiangQiBoard({
         y1={left.y}
         x2={right.x}
         y2={right.y}
-        stroke="black"
+        stroke="var(--xq-board-ink)"
+        strokeWidth="1.2"
       />,
     )
   }
 
-  // Palaces
+  // Palace diagonals (×) at both 3×3 corners.
   const drawPalace = (rStart: number) => {
     const tl = getCoords(rStart, 3)
     const tr = getCoords(rStart, 5)
@@ -136,15 +168,62 @@ export function XiangQiBoard({
     const br = getCoords(rStart + 2, 5)
     return (
       <g key={`palace-${rStart}`}>
-        <line x1={tl.x} y1={tl.y} x2={br.x} y2={br.y} stroke="black" />
-        <line x1={tr.x} y1={tr.y} x2={bl.x} y2={bl.y} stroke="black" />
+        <line
+          x1={tl.x}
+          y1={tl.y}
+          x2={br.x}
+          y2={br.y}
+          stroke="var(--xq-board-ink)"
+          strokeWidth="1.2"
+        />
+        <line
+          x1={tr.x}
+          y1={tr.y}
+          x2={bl.x}
+          y2={bl.y}
+          stroke="var(--xq-board-ink)"
+          strokeWidth="1.2"
+        />
       </g>
     )
   }
 
-  const pieces = []
-  const targets = []
-  const hitboxes = []
+  // Pawn/cannon corner brackets.
+  const positionMarks: Array<React.ReactNode> = []
+  const markOffset = cellSize * 0.1
+  const markArm = cellSize * 0.16
+  for (const [row, col] of POSITION_MARKERS) {
+    const { x, y } = getCoords(row, col)
+    // Edge detection is in *visual* x — under a flipped board, logical
+    // col 0 lands on the visual right edge.
+    const visualCol = isRedBottom ? col : 8 - col
+    const isLeftEdge = visualCol === 0
+    const isRightEdge = visualCol === 8
+    const quadrants: ReadonlyArray<[number, number, boolean]> = [
+      [-1, -1, !isLeftEdge],
+      [1, -1, !isRightEdge],
+      [-1, 1, !isLeftEdge],
+      [1, 1, !isRightEdge],
+    ]
+    for (let q = 0; q < quadrants.length; q++) {
+      const [sx, sy, show] = quadrants[q]
+      if (!show) continue
+      positionMarks.push(
+        <path
+          key={`m-${row}-${col}-${q}`}
+          d={`M ${x + sx * (markOffset + markArm)} ${y + sy * markOffset} L ${x + sx * markOffset} ${y + sy * markOffset} L ${x + sx * markOffset} ${y + sy * (markOffset + markArm)}`}
+          stroke="var(--xq-board-ink-muted)"
+          strokeWidth="1.1"
+          fill="none"
+          strokeLinecap="round"
+        />,
+      )
+    }
+  }
+
+  const pieces: Array<React.ReactNode> = []
+  const overlays: Array<React.ReactNode> = []
+  const hitboxes: Array<React.ReactNode> = []
 
   for (let row = 0; row < 10; row++) {
     for (let col = 0; col < 9; col++) {
@@ -152,7 +231,6 @@ export function XiangQiBoard({
       const val = board[idx]
       const { x, y } = getCoords(row, col)
 
-      // Hitbox
       hitboxes.push(
         <rect
           key={`hitbox-${idx}`}
@@ -161,126 +239,191 @@ export function XiangQiBoard({
           width={cellSize}
           height={cellSize}
           fill="transparent"
-          cursor="pointer"
           onClick={() => onCellClick(idx)}
+          style={{ cursor: 'pointer' }}
         />,
       )
 
-      // Last move highlight
+      // Last-move marker: soft tint + L-shaped corner brackets in the
+      // theme's `--xq-last-move` accent. Replaces the prior yellow box.
       if (lastMove && (lastMove.from === idx || lastMove.to === idx)) {
-        targets.push(
-          <rect
-            key={`last-${idx}`}
-            x={x - cellSize / 2}
-            y={y - cellSize / 2}
-            width={cellSize}
-            height={cellSize}
-            className="fill-yellow-300/30 dark:fill-yellow-500/30"
-            pointerEvents="none"
-          />,
+        const half = cellSize / 2
+        const cornerInset = cellSize * 0.08
+        const cornerArm = cellSize * 0.22
+        const cornerKeys: ReadonlyArray<[number, number]> = [
+          [-1, -1],
+          [1, -1],
+          [-1, 1],
+          [1, 1],
+        ]
+        overlays.push(
+          <g key={`last-${idx}`} pointerEvents="none">
+            <rect
+              x={x - half + cornerInset}
+              y={y - half + cornerInset}
+              width={cellSize - cornerInset * 2}
+              height={cellSize - cornerInset * 2}
+              rx={cellSize * 0.08}
+              fill="var(--xq-last-move)"
+              opacity={0.12}
+            />
+            {cornerKeys.map(([sx, sy]) => {
+              const ax = x + sx * (half - cornerInset)
+              const ay = y + sy * (half - cornerInset)
+              return (
+                <path
+                  key={`lc-${sx}-${sy}`}
+                  d={`M ${ax - sx * cornerArm} ${ay} L ${ax} ${ay} L ${ax} ${ay - sy * cornerArm}`}
+                  stroke="var(--xq-last-move)"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeLinecap="round"
+                  opacity={0.9}
+                />
+              )
+            })}
+          </g>,
         )
       }
 
-      // Selection highlight
       if (selectedCell === idx) {
-        targets.push(
+        overlays.push(
           <circle
             key={`sel-${idx}`}
             cx={x}
             cy={y}
-            r={cellSize * 0.45}
+            r={cellSize * 0.46}
             fill="none"
+            stroke="var(--xq-last-move)"
             strokeWidth="3"
-            className="stroke-blue-600 dark:stroke-blue-400"
+            opacity={0.9}
             pointerEvents="none"
           />,
         )
       }
 
-      // Legal target highlight
       if (legalTargets.has(idx)) {
         if (val === 0) {
-          targets.push(
+          overlays.push(
             <circle
               key={`tgt-${idx}`}
               cx={x}
               cy={y}
-              r={cellSize * 0.15}
-              className="fill-green-600 dark:fill-green-500"
+              r={cellSize * 0.14}
+              className="fill-emerald-600 dark:fill-emerald-400"
+              opacity={0.7}
               pointerEvents="none"
             />,
           )
         } else {
-          targets.push(
+          overlays.push(
             <circle
               key={`tgt-${idx}`}
               cx={x}
               cy={y}
-              r={cellSize * 0.45}
+              r={cellSize * 0.46}
               fill="none"
-              strokeWidth="4"
-              className="stroke-green-600 dark:stroke-green-500"
+              className="stroke-emerald-600 dark:stroke-emerald-400"
+              strokeWidth="3"
+              opacity={0.85}
               pointerEvents="none"
             />,
           )
         }
       }
 
-      // Piece
       if (val !== 0) {
         const isRed = val > 0
         const absVal = Math.abs(val)
         const char = isRed ? RED_CHARS[absVal] : BLACK_CHARS[absVal]
         const isCheck = inCheckCell === idx
+        const sideStroke = isRed ? 'var(--xq-red)' : 'var(--xq-black)'
+        const sideFill = isRed ? 'var(--xq-red)' : 'var(--xq-black)'
+        const pieceR = cellSize * 0.4
+        const innerR = cellSize * 0.32
 
         pieces.push(
           <g key={`piece-${idx}`} style={{ pointerEvents: 'none' }}>
+            {/* Soft shadow disc — cheap drop-shadow alternative. */}
+            <circle
+              cx={x}
+              cy={y + 1.5}
+              r={pieceR}
+              fill="rgb(0 0 0 / 0.22)"
+            />
+            {/* Disc face with the shared piece gradient. */}
             <circle
               cx={x}
               cy={y}
-              r={cellSize * 0.4}
-              strokeWidth="2"
-              className={`fill-[#ffe4b5] dark:fill-slate-800 ${isRed ? 'stroke-red-600 dark:stroke-red-500' : 'stroke-slate-900 dark:stroke-slate-300'}`}
+              r={pieceR}
+              fill="url(#xq-piece-face)"
             />
-            {isCheck && (
-              <circle
-                cx={x}
-                cy={y}
-                r={cellSize * 0.4}
-                fill="none"
-                strokeWidth="6"
-                className="stroke-red-500/80 animate-pulse"
-              />
-            )}
+            {/* Side-coloured outer ring. */}
+            <circle
+              cx={x}
+              cy={y}
+              r={pieceR - 1}
+              fill="none"
+              stroke={sideStroke}
+              strokeWidth="2.2"
+            />
+            {/* Inner decorative ring. */}
+            <circle
+              cx={x}
+              cy={y}
+              r={innerR}
+              fill="none"
+              stroke={sideStroke}
+              strokeWidth="0.8"
+              opacity={0.55}
+            />
+            {/* Character glyph. */}
             <text
               x={x}
               y={y}
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize={cellSize * 0.5}
-              fontWeight="bold"
-              className={isRed ? 'fill-red-600 dark:fill-red-500' : 'fill-slate-900 dark:fill-slate-300'}
+              fontSize={cellSize * 0.52}
+              fontWeight={700}
+              fill={sideFill}
+              style={{
+                fontFamily:
+                  "ui-serif, 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', serif",
+              }}
             >
               {char}
             </text>
+            {isCheck && (
+              <circle
+                cx={x}
+                cy={y}
+                r={pieceR + 2}
+                fill="none"
+                stroke="var(--destructive)"
+                strokeWidth="3"
+                className="animate-pulse"
+                opacity={0.9}
+              />
+            )}
           </g>,
         )
       }
     }
   }
 
-  // Labels
-  const labels = []
+  // File / rank labels — quiet, lowered contrast.
+  const labels: Array<React.ReactNode> = []
   for (let c = 0; c < 9; c++) {
     const x = padding + (isRedBottom ? c : 8 - c) * cellSize
     labels.push(
       <text
         key={`l-col-${c}`}
         x={x}
-        y={height - 5}
+        y={height - padding * 0.35}
         textAnchor="middle"
-        fontSize="12"
-        className="fill-slate-600 dark:fill-slate-400"
+        fontSize={cellSize * 0.22}
+        fill="var(--xq-board-ink-muted)"
+        style={{ fontFeatureSettings: '"tnum"' }}
       >
         {String.fromCharCode(97 + c)}
       </text>,
@@ -291,11 +434,13 @@ export function XiangQiBoard({
     labels.push(
       <text
         key={`l-row-${r}`}
-        x={5}
+        x={padding * 0.4}
         y={y}
         dominantBaseline="central"
-        fontSize="12"
-        className="fill-slate-600 dark:fill-slate-400"
+        textAnchor="middle"
+        fontSize={cellSize * 0.22}
+        fill="var(--xq-board-ink-muted)"
+        style={{ fontFeatureSettings: '"tnum"' }}
       >
         {r}
       </text>,
@@ -308,27 +453,62 @@ export function XiangQiBoard({
       className={className ?? 'flex justify-center select-none'}
     >
       <svg
+        viewBox={`0 0 ${width} ${height}`}
         width={width}
         height={height}
-        className="bg-orange-100 dark:bg-slate-800 rounded shadow-md border border-orange-300 dark:border-slate-700 transition-colors"
+        className="rounded-xl shadow-md ring-1 ring-black/10 dark:ring-white/10"
+        style={{ maxWidth: '100%', height: 'auto' }}
       >
+        <defs>
+          <radialGradient
+            id="xq-piece-face"
+            cx="42%"
+            cy="34%"
+            r="0.78"
+          >
+            <stop offset="0%" stopColor="var(--xq-piece-face)" />
+            <stop offset="100%" stopColor="var(--xq-piece-face-edge)" />
+          </radialGradient>
+          <linearGradient id="xq-board-surface" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--xq-board-surface)" />
+            <stop offset="100%" stopColor="var(--xq-board-surface-edge)" />
+          </linearGradient>
+        </defs>
+
+        {/* Board surface fill. */}
+        <rect
+          x="0"
+          y="0"
+          width={width}
+          height={height}
+          fill="url(#xq-board-surface)"
+        />
+
         {lines}
         {drawPalace(0)}
         {drawPalace(7)}
+        {positionMarks}
 
-        {/* River text */}
+        {/* River legend. */}
         <text
           x={width / 2}
           y={height / 2}
           textAnchor="middle"
           dominantBaseline="central"
-          fontSize="30"
-          className="fill-slate-500/60 dark:fill-slate-400/50"
+          fontSize={cellSize * 0.58}
+          fill="var(--xq-board-ink-muted)"
+          opacity={0.55}
+          letterSpacing={cellSize * 0.1}
+          style={{
+            fontFamily:
+              "ui-serif, 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', serif",
+            fontStyle: 'italic',
+          }}
         >
           楚 河 漢 界
         </text>
 
-        {targets}
+        {overlays}
         {hitboxes}
         {pieces}
         {labels}
