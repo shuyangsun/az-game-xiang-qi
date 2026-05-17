@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import type { Action, Player, Snapshot, MoveProvider } from './types'
 import { loadXqWasm } from './xq-wasm'
 import type { XqWasmConfig } from './xq-wasm'
@@ -45,34 +45,27 @@ export function useXqGame(options: UseXqGameOptions = {}) {
     }
   }, [options.wasmConfig?.wasmUrl, options.wasmConfig?.jsUrl])
 
-  // Expose memoized callbacks
-  const applyAction = useCallback(
-    (action: Action) => {
-      if (!engine) return
-      try {
-        engine.applyAction(action)
-        setSnapshot(engine.snapshot)
-      } catch (e) {
-        console.error(e)
-      }
-    },
-    [engine],
-  )
+  const applyAction = (action: Action) => {
+    if (!engine) return
+    try {
+      engine.applyAction(action)
+      setSnapshot(engine.snapshot)
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
-  const undoLastAction = useCallback(() => {
+  const undoLastAction = () => {
     if (!engine) return
     engine.undoLastAction()
     setSnapshot(engine.snapshot)
-  }, [engine])
+  }
 
-  const reset = useCallback(
-    (startingPlayer: Player = 'red') => {
-      if (!engine) return
-      engine.reset(startingPlayer)
-      setSnapshot(engine.snapshot)
-    },
-    [engine],
-  )
+  const reset = (startingPlayer: Player = 'red') => {
+    if (!engine) return
+    engine.reset(startingPlayer)
+    setSnapshot(engine.snapshot)
+  }
 
   // Handle move providers for AI
   useEffect(() => {

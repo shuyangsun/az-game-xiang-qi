@@ -3,12 +3,20 @@
 // the game with snapshot+onAction props that don't leak XQ-specific
 // piece selection / orientation state.
 
-import { useMemo, useState } from 'react'
-import type { Action, Player, Snapshot } from './engine'
+import { useState } from 'react'
+import type { Action, DebugProbe, Player, Snapshot } from './engine'
 import { GameStatusBar } from './components/xiangqi/GameStatusBar'
 import { MoveList } from './components/xiangqi/MoveList'
 import { XiangQiBoard } from './components/xiangqi/XiangQiBoard'
 import type { Orientation } from './components/xiangqi/XiangQiBoard'
+import {
+  AugmentationsGrid,
+  DebugPanel,
+  MiniBoard,
+  ActionCountTile,
+  SerializationProbeTile,
+  VariantCountTile,
+} from './components/xiangqi'
 
 // ---------------------------------------------------------------------------
 // Board
@@ -38,7 +46,7 @@ export function XiangQiKitBoard({
 
   const orientation: Orientation = flipped ? 'black-bottom' : 'red-bottom'
 
-  const legalTargets = useMemo(() => {
+  const legalTargets = (() => {
     const targets = new Set<number>()
     if (selectedCell !== null) {
       for (const a of snapshot.validActions) {
@@ -46,16 +54,16 @@ export function XiangQiKitBoard({
       }
     }
     return targets
-  }, [snapshot, selectedCell])
+  })()
 
-  const inCheckCell = useMemo(() => {
+  const inCheckCell = (() => {
     if (!snapshot.inCheck) return null
     const targetVal = snapshot.currentPlayer === 'red' ? 1 : -1
     for (let i = 0; i < snapshot.board.length; i++) {
       if (snapshot.board[i] === targetVal) return i
     }
     return null
-  }, [snapshot])
+  })()
 
   const handleCellClick = (cellIdx: number) => {
     if (disabled || snapshot.isOver) return
@@ -140,4 +148,94 @@ export function XiangQiKitMoveList({
   className,
 }: KitMoveListProps<Action>) {
   return <MoveList moves={moves} className={className} />
+}
+
+// ---------------------------------------------------------------------------
+// Debug surface
+//
+// Each piece is exposed so a consuming shell can re-compose them.
+// `XiangQiKitDebugPanel` is the all-in-one assembly; the sub-pieces
+// (`KitMiniBoard`, `KitAugmentationsGrid`, the tiles) work standalone
+// off a `DebugProbe` snapshot.
+
+export interface KitDebugPanelProps {
+  probe: DebugProbe | null
+  defaultOpen?: boolean
+  className?: string
+}
+
+export function XiangQiKitDebugPanel({
+  probe,
+  defaultOpen,
+  className,
+}: KitDebugPanelProps) {
+  return (
+    <DebugPanel
+      probe={probe}
+      defaultOpen={defaultOpen}
+      className={className}
+    />
+  )
+}
+
+export interface KitMiniBoardProps {
+  board: Int8Array | ReadonlyArray<number>
+  cellSize?: number
+  caption?: string
+  footer?: string
+  className?: string
+}
+
+export function XiangQiKitMiniBoard(props: KitMiniBoardProps) {
+  return <MiniBoard {...props} />
+}
+
+export interface KitAugmentationsGridProps {
+  probe: DebugProbe
+  cellSize?: number
+  className?: string
+}
+
+export function XiangQiKitAugmentationsGrid({
+  probe,
+  cellSize,
+  className,
+}: KitAugmentationsGridProps) {
+  return (
+    <AugmentationsGrid
+      variants={probe.variants}
+      cellSize={cellSize}
+      className={className}
+    />
+  )
+}
+
+export interface KitDebugTilesProps {
+  probe: DebugProbe
+  currentPlayer: Player
+  className?: string
+}
+
+export function XiangQiKitDebugTiles({
+  probe,
+  currentPlayer,
+  className,
+}: KitDebugTilesProps) {
+  return (
+    <div
+      className={
+        className ?? 'grid gap-3 grid-cols-1 sm:grid-cols-3'
+      }
+    >
+      <ActionCountTile
+        count={probe.validActionCount}
+        player={currentPlayer}
+      />
+      <SerializationProbeTile
+        stateVectorLength={probe.stateVectorLength}
+        stateRoundtripOk={probe.stateRoundtripOk}
+      />
+      <VariantCountTile count={probe.variants.length} />
+    </div>
+  )
 }

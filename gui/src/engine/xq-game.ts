@@ -1,9 +1,17 @@
-import type { Action, Player, Snapshot, XqEngine } from './types'
+import type {
+  Action,
+  DebugProbe,
+  DebugProbeVariant,
+  Player,
+  Snapshot,
+  XqEngine,
+} from './types'
 
 export class XqGameWrapper implements XqEngine {
   private module: any
   private gameJs: any
   private serializerJs: any | null
+  private debugProbeJs: any | null
   private currentSnapshot!: Snapshot
 
   constructor(module: any, startingPlayer: Player = 'red') {
@@ -15,6 +23,12 @@ export class XqGameWrapper implements XqEngine {
       this.serializerJs = new module.XqSerializerJs()
     } else {
       this.serializerJs = null
+    }
+
+    if (module.XqDebugProbeJs) {
+      this.debugProbeJs = new module.XqDebugProbeJs()
+    } else {
+      this.debugProbeJs = null
     }
 
     this.updateSnapshot()
@@ -84,11 +98,9 @@ export class XqGameWrapper implements XqEngine {
     const policy = this.serializerJs.serializePolicyOutput(this.gameJs)
     const aug = this.serializerJs.getAugmentationStats(this.gameJs)
 
-    // length of Float32Array from Emscripten might need to be checked
     const stateVectorLength = state.length
     const policyVectorLength = policy.length
 
-    // aug.variantActionCounts is a JS array returned from Embind val::array
     const variantActionCounts: number[] = []
     for (const count of aug.variantActionCounts) {
       variantActionCounts.push(count)
@@ -99,6 +111,48 @@ export class XqGameWrapper implements XqEngine {
       policyVectorLength,
       variantCount: aug.variantCount,
       variantActionCounts,
+    }
+  }
+
+  getDebugProbe(_snapshot: Snapshot): DebugProbe | null {
+    // `_snapshot` is intentionally unused. It's threaded through so
+    // React Compiler infers the snapshot as a dep of the call and
+    // re-runs it on each move/undo. Without the arg the compiler
+    // narrows the inferred deps to `engine` alone (snapshot only
+    // appears in null-checks) and the probe stays pinned.
+    void _snapshot
+    if (!this.debugProbeJs) return null
+
+    const raw = this.debugProbeJs.probe(this.gameJs)
+
+    // Embind returns Int8Array views into WASM memory; copy them
+    // immediately so the next probe call cannot invalidate the result.
+    const canonicalView = raw.canonicalBoard
+    const canonicalBoard = new Int8Array(canonicalView.length)
+    canonicalBoard.set(canonicalView)
+
+    const variants: DebugProbeVariant[] = []
+    for (const v of raw.variants) {
+      const boardView = v.board
+      const board = new Int8Array(boardView.length)
+      board.set(boardView)
+      variants.push({
+        index: v.index,
+        name: v.name,
+        currentPlayer: v.currentPlayer ? 'black' : 'red',
+        validActionCount: v.validActionCount,
+        board,
+        stateVectorLength: v.stateVectorLength,
+        stateRoundtripOk: v.stateRoundtripOk,
+      })
+    }
+
+    return {
+      validActionCount: raw.validActionCount,
+      stateVectorLength: raw.stateVectorLength,
+      stateRoundtripOk: raw.stateRoundtripOk,
+      canonicalBoard,
+      variants,
     }
   }
 
@@ -175,5 +229,6 @@ export class XqGameWrapper implements XqEngine {
   destroy() {
     if (this.gameJs) this.gameJs.delete()
     if (this.serializerJs) this.serializerJs.delete()
+    if (this.debugProbeJs) this.debugProbeJs.delete()
   }
 }

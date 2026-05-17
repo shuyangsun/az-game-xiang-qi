@@ -14,12 +14,20 @@ import type {
 } from './engine'
 import { useXqGame } from './engine/useXqGame'
 import {
+  XiangQiKitAugmentationsGrid,
   XiangQiKitBoard,
+  XiangQiKitDebugPanel,
+  XiangQiKitDebugTiles,
+  XiangQiKitMiniBoard,
   XiangQiKitMoveList,
   XiangQiKitStatusBar,
 } from './kit-components'
 import type {
+  KitAugmentationsGridProps,
   KitBoardProps,
+  KitDebugPanelProps,
+  KitDebugTilesProps,
+  KitMiniBoardProps,
   KitMoveListProps,
   KitStatusBarProps,
 } from './kit-components'
@@ -70,6 +78,16 @@ export interface GameKit<TSnapshot, TAction, TPlayer extends string> {
   Board: React.ComponentType<KitBoardProps<TSnapshot, TAction>>
   StatusBar: React.ComponentType<KitStatusBarProps<TSnapshot, TPlayer>>
   MoveList: React.ComponentType<KitMoveListProps<TAction>>
+
+  // Optional debug surface: present when the WASM module was built
+  // with the `XqDebugProbeJs` binding. The shell can render either the
+  // all-in-one `DebugPanel` or any subset of the sub-components.
+  debug?: {
+    Panel: React.ComponentType<KitDebugPanelProps>
+    MiniBoard: React.ComponentType<KitMiniBoardProps>
+    AugmentationsGrid: React.ComponentType<KitAugmentationsGridProps>
+    Tiles: React.ComponentType<KitDebugTilesProps>
+  }
 
   actionToString: (a: TAction) => string
   actionFromString: (s: string) => TAction | { error: string }
@@ -176,6 +194,13 @@ export const xqGameKit: GameKit<Snapshot, Action, Player> = {
   Board: XiangQiKitBoard,
   StatusBar: XiangQiKitStatusBar,
   MoveList: XiangQiKitMoveList,
+
+  debug: {
+    Panel: XiangQiKitDebugPanel,
+    MiniBoard: XiangQiKitMiniBoard,
+    AugmentationsGrid: XiangQiKitAugmentationsGrid,
+    Tiles: XiangQiKitDebugTiles,
+  },
 
   actionToString,
   actionFromString,

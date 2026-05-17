@@ -1,17 +1,21 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Swords } from 'lucide-react'
 import { useXqGame } from '../engine'
 import type { Player } from '../engine'
 import {
+  ActionCountTile,
   ControlBar,
   DebugPanel,
   GameStatusBar,
   MoveList,
+  SerializationProbeTile,
   XiangQiBoard,
 } from '../components/xiangqi'
 import type { Orientation } from '../components/xiangqi'
 import { ThemeToggle } from '../components/ThemeToggle'
+
+const HIDE_DEBUG_PANEL = import.meta.env.VITE_XQ_HIDE_DEBUG_PANEL
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -47,7 +51,7 @@ function Home() {
     }
   }, [snapshot, engine])
 
-  const legalTargets = useMemo(() => {
+  const legalTargets = (() => {
     const targets = new Set<number>()
     if (snapshot && selectedCell !== null) {
       for (const action of snapshot.validActions) {
@@ -57,7 +61,16 @@ function Home() {
       }
     }
     return targets
-  }, [snapshot, selectedCell])
+  })()
+
+  // The debug probe is keyed on snapshot identity — passing
+  // `snapshot` into `getDebugProbe` is what makes React Compiler
+  // re-run this on each move/undo. Without the arg the compiler
+  // narrows the inferred deps to `engine` alone (snapshot only
+  // appears in null-checks) and the probe stays pinned to the
+  // initial state.
+  const probe =
+    engine && snapshot ? engine.getDebugProbe(snapshot) : null
 
   if (error) {
     return (
@@ -152,40 +165,59 @@ function Home() {
 
       <main className="flex-1">
         <div className="max-w-[1400px] mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6">
-          <section className="flex-1 min-w-0">
-            <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
-              <GameStatusBar
-                currentPlayer={snapshot.currentPlayer}
-                currentRound={snapshot.currentRound}
-                repeatCount={snapshot.repeatCount}
-                inCheck={snapshot.inCheck}
-                isOver={snapshot.isOver}
-                score={snapshot.score}
-              />
-              <ControlBar
-                onToggleOrientation={handleToggleOrientation}
-                canUndo={snapshot.currentRound > 0}
-                onUndo={() => {
-                  undoLastAction()
-                  setSelectedCell(null)
-                }}
-                onNewGame={(sp) => {
-                  reset(sp)
-                  setSelectedCell(null)
-                }}
-              />
-              <div className="p-4 sm:p-6 flex justify-center items-start">
-                <XiangQiBoard
-                  board={snapshot.board}
-                  orientation={orientation}
-                  selectedCell={selectedCell}
-                  legalTargets={legalTargets}
-                  lastMove={snapshot.lastAction}
-                  inCheckCell={inCheckCell}
-                  onCellClick={handleCellClick}
+          <section className="flex-1 min-w-0 flex flex-col gap-4">
+            <div className="flex flex-col lg:flex-row gap-4 lg:items-stretch">
+              {!HIDE_DEBUG_PANEL && (
+                <aside className="lg:w-56 lg:shrink-0 lg:self-center flex flex-col gap-3">
+                  <ActionCountTile
+                    count={probe?.validActionCount ?? snapshot.validActions.length}
+                    player={snapshot.currentPlayer}
+                  />
+                  {probe && (
+                    <SerializationProbeTile
+                      stateVectorLength={probe.stateVectorLength}
+                      stateRoundtripOk={probe.stateRoundtripOk}
+                    />
+                  )}
+                </aside>
+              )}
+
+              <div className="flex-1 min-w-0 rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
+                <GameStatusBar
+                  currentPlayer={snapshot.currentPlayer}
+                  currentRound={snapshot.currentRound}
+                  repeatCount={snapshot.repeatCount}
+                  inCheck={snapshot.inCheck}
+                  isOver={snapshot.isOver}
+                  score={snapshot.score}
                 />
+                <ControlBar
+                  onToggleOrientation={handleToggleOrientation}
+                  canUndo={snapshot.currentRound > 0}
+                  onUndo={() => {
+                    undoLastAction()
+                    setSelectedCell(null)
+                  }}
+                  onNewGame={(sp) => {
+                    reset(sp)
+                    setSelectedCell(null)
+                  }}
+                />
+                <div className="p-4 sm:p-6 flex justify-center items-start">
+                  <XiangQiBoard
+                    board={snapshot.board}
+                    orientation={orientation}
+                    selectedCell={selectedCell}
+                    legalTargets={legalTargets}
+                    lastMove={snapshot.lastAction}
+                    inCheckCell={inCheckCell}
+                    onCellClick={handleCellClick}
+                  />
+                </div>
               </div>
             </div>
+
+            {!HIDE_DEBUG_PANEL && <DebugPanel probe={probe} />}
           </section>
 
           <aside className="w-full lg:w-80 lg:shrink-0">
@@ -195,10 +227,6 @@ function Home() {
           </aside>
         </div>
       </main>
-
-      {import.meta.env.VITE_XQ_DEBUG_PANEL && (
-        <DebugPanel engine={engine} hoveredAction={null} />
-      )}
     </div>
   )
 }

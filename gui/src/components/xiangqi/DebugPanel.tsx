@@ -1,140 +1,96 @@
 import { useState } from 'react'
-import type { XqEngine } from '../../engine'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { Button } from '#/components/ui/button'
+import { cn } from '#/lib/utils'
+import type { DebugProbe } from '../../engine'
+import { AugmentationsGrid } from './AugmentationsGrid'
 
 export interface DebugPanelProps {
-  engine: XqEngine
-  hoveredAction: number | null // index in validActions
+  /**
+   * Pre-computed probe snapshot. Pass `null` when the engine isn't
+   * built with the debug binding so the panel can render a clear
+   * remediation hint.
+   */
+  probe: DebugProbe | null
+  defaultOpen?: boolean
+  className?: string
 }
 
-export function DebugPanel({ engine, hoveredAction }: DebugPanelProps) {
-  const [showCanonical, setShowCanonical] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-
-  const snap = engine.snapshot
-  const stats = engine.getDebugStats()
-
-  if (!expanded) {
-    return (
-      <div
-        className="bg-slate-800 text-slate-300 p-2 text-sm flex justify-between items-center cursor-pointer hover:bg-slate-700"
-        onClick={() => setExpanded(true)}
-      >
-        <span className="font-semibold text-slate-100">
-          [Debug Panel] Click to expand
-        </span>
-      </div>
-    )
-  }
-
-  const renderBoardGrid = (board: Int8Array) => {
-    const rows = []
-    for (let r = 0; r < 10; r++) {
-      const cols = []
-      for (let c = 0; c < 9; c++) {
-        const val = board[r * 9 + c]
-        cols.push(
-          <div
-            key={c}
-            className={`w-8 h-8 flex items-center justify-center border border-slate-700 ${val > 0 ? 'text-red-400' : val < 0 ? 'text-blue-400' : 'text-slate-600'}`}
-          >
-            {val !== 0 ? val : '.'}
-          </div>,
-        )
-      }
-      rows.push(
-        <div key={r} className="flex">
-          {cols}
-        </div>,
-      )
-    }
-    return (
-      <div className="flex flex-col border border-slate-700 font-mono text-xs">
-        {rows}
-      </div>
-    )
-  }
+/**
+ * Collapsible debug surface showing the inference-time augmented
+ * variants. The caller computes the `DebugProbe` once (keyed on
+ * snapshot identity) so this panel and the sibling stat tiles
+ * never disagree on what they're showing.
+ */
+export function DebugPanel({
+  probe,
+  defaultOpen = false,
+  className,
+}: DebugPanelProps) {
+  const [open, setOpen] = useState(defaultOpen)
+  const variantCount = probe?.variants.length ?? 0
 
   return (
-    <div className="bg-slate-900 text-slate-300 p-4 text-sm flex flex-col gap-6">
-      <div className="flex justify-between items-center border-b border-slate-700 pb-2">
-        <h3 className="font-bold text-lg text-slate-100">Engine Debug Panel</h3>
-        <button
-          className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200"
-          onClick={() => setExpanded(false)}
+    <div
+      className={cn(
+        'rounded-xl border bg-card text-card-foreground shadow-sm',
+        className,
+      )}
+    >
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-accent/40 transition-colors rounded-t-xl"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">
+            Augmented variants ({variantCount})
+          </span>
+          <span className="text-[11px] font-mono text-muted-foreground">
+            inference-time data augmentation
+          </span>
+        </div>
+        {open ? (
+          <ChevronUp className="size-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="size-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t px-4 py-4">
+          {probe ? (
+            <AugmentationsGrid variants={probe.variants} cellSize={18} />
+          ) : (
+            <DebugProbeMissingNotice />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DebugProbeMissingNotice() {
+  return (
+    <div className="flex items-start gap-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+      <div className="flex flex-col gap-1.5">
+        <span className="font-semibold text-amber-700 dark:text-amber-400">
+          Debug probe unavailable
+        </span>
+        <span className="text-xs text-muted-foreground">
+          The WASM module is missing <code>XqDebugProbeJs</code>. Rebuild
+          it with <code>bun run wasm:build</code> from
+          <code className="ml-1">gui/</code>.
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1 self-start"
+          onClick={() => window.location.reload()}
         >
-          Close
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <div className="flex items-center gap-4 mb-2">
-            <h4 className="font-semibold text-slate-200">Raw Board Codes</h4>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={showCanonical}
-                onChange={(e) => setShowCanonical(e.target.checked)}
-              />
-              Canonical View
-            </label>
-          </div>
-          {renderBoardGrid(showCanonical ? snap.canonicalBoard : snap.board)}
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <div>
-            <h4 className="font-semibold text-slate-200 mb-2">
-              Valid Actions ({snap.validActions.length})
-            </h4>
-            <div className="max-h-40 overflow-y-auto bg-slate-800 border border-slate-700 p-2 font-mono text-xs">
-              {snap.validActions.map((a, i) => (
-                <span
-                  key={i}
-                  className={`inline-block w-16 ${hoveredAction === i ? 'bg-slate-600 text-white' : ''}`}
-                >
-                  {engine.actionToString(a)}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-slate-200 mb-2">
-              Serialization & Augmentation Probe
-            </h4>
-            {stats ? (
-              <div className="bg-slate-800 border border-slate-700 p-2 font-mono text-xs space-y-1">
-                <div>
-                  State Vector Length:{' '}
-                  <span className="text-green-400">
-                    {stats.stateVectorLength}
-                  </span>
-                </div>
-                <div>
-                  Policy Vector Length:{' '}
-                  <span className="text-green-400">
-                    {stats.policyVectorLength}
-                  </span>
-                </div>
-                <div>
-                  Variant Count:{' '}
-                  <span className="text-green-400">{stats.variantCount}</span>
-                </div>
-                <div>
-                  Variant Action Counts:{' '}
-                  <span className="text-green-400">
-                    {stats.variantActionCounts.join(', ')}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="text-amber-400 italic text-xs">
-                Not available (built without serializer bindings)
-              </div>
-            )}
-          </div>
-        </div>
+          Reload page
+        </Button>
       </div>
     </div>
   )

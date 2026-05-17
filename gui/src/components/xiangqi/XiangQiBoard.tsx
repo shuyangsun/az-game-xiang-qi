@@ -70,9 +70,19 @@ export function XiangQiBoard({
     setCellSize(readCellSize(containerRef.current))
   }, [])
 
-  const padding = Math.round(cellSize * 0.6)
+  // Padding holds the rank/file gutters. Pieces extend `pieceR = 0.4 *
+  // cellSize` past the outermost grid line, so padding ≥ cellSize gives
+  // ≥ 0.6 * cellSize of label clearance on every side.
+  const padding = Math.round(cellSize * 1.15)
   const width = cellSize * 8 + padding * 2
   const height = cellSize * 9 + padding * 2
+
+  // Label baseline is positioned from the piece's outer edge so the
+  // gap between piece bottom and label cap-height stays constant
+  // regardless of padding tweaks.
+  const labelFontSize = Math.round(cellSize * 0.3)
+  const colLabelY = padding + 9 * cellSize + cellSize * 0.85
+  const rowLabelX = padding - cellSize * 0.75
 
   const isRedBottom = orientation === 'red-bottom'
 
@@ -411,7 +421,10 @@ export function XiangQiBoard({
     }
   }
 
-  // File / rank labels — quiet, lowered contrast.
+  // File / rank labels — sit fully outside the piece zone in the SVG
+  // padding gutter (board is rows/cols only; padding is reserved for
+  // labels + breathing room). Larger and semi-bold so they read at a
+  // glance without competing with the piece glyphs.
   const labels: Array<React.ReactNode> = []
   for (let c = 0; c < 9; c++) {
     const x = padding + (isRedBottom ? c : 8 - c) * cellSize
@@ -419,10 +432,11 @@ export function XiangQiBoard({
       <text
         key={`l-col-${c}`}
         x={x}
-        y={height - padding * 0.35}
+        y={colLabelY}
         textAnchor="middle"
-        fontSize={cellSize * 0.22}
-        fill="var(--xq-board-ink-muted)"
+        fontSize={labelFontSize}
+        fontWeight={600}
+        fill="var(--xq-board-ink)"
         style={{ fontFeatureSettings: '"tnum"' }}
       >
         {String.fromCharCode(97 + c)}
@@ -434,12 +448,13 @@ export function XiangQiBoard({
     labels.push(
       <text
         key={`l-row-${r}`}
-        x={padding * 0.4}
+        x={rowLabelX}
         y={y}
         dominantBaseline="central"
         textAnchor="middle"
-        fontSize={cellSize * 0.22}
-        fill="var(--xq-board-ink-muted)"
+        fontSize={labelFontSize}
+        fontWeight={600}
+        fill="var(--xq-board-ink)"
         style={{ fontFeatureSettings: '"tnum"' }}
       >
         {r}
