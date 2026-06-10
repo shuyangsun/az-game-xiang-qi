@@ -21,7 +21,7 @@ cmake --preset release && cmake --build --preset release
 
 ### Running the GUI (Browser)
 
-The repository includes a web-based GUI built with [TanStack Start](https://tanstack.com/start) and React. It relies on the game engine compiled to WebAssembly (WASM).
+The repository includes a web-based GUI built with [TanStack Start](https://tanstack.com/start) and React. It relies on the game engine compiled to WebAssembly (WASM), so the browser runs the exact same `XqGame` logic as the trainer. See [`gui/README.md`](gui/README.md) for the full GUI workflow and [`memory/gui_design.md`](memory/gui_design.md) for the design.
 
 ```bash
 cd gui
@@ -36,7 +36,7 @@ bun install
 bun run dev
 ```
 
-Open `http://localhost:5173` to play Xiang Qi against yourself or inspect the `[Debug Panel]` output.
+Open `http://localhost:5173` to play Xiang Qi against yourself or inspect the **Augmented variants** debug panel.
 
 ## Tests
 

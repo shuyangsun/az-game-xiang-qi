@@ -33,7 +33,7 @@ enum class XqError : uint8_t { /* see below */ };
 - **Action**: 2 bytes total. `from` and `to` are flat cell
   indices `r*9+c` for `r in [0,9]` and `c in [0,8]`.
   Sentinel `from == to == 90` is reserved as "no action" and is
-  never returned by `ValidActions()`.
+  never written by `ValidActionsInto()`.
 - **Board**: `std::array<int8_t, 90>`, 90 bytes. See
   [board_encoding.md](./game_design_details/board_encoding.md)
   for the cell value codes.
@@ -76,7 +76,7 @@ XqGame() noexcept;                                  // standard start
 explicit XqGame(XqP starting_player) noexcept;      // pick side
 // snapshot ctor used by augmenters; takes board, player, round,
 // optional last action. NOT for MCTS use.
-XqGame(XqB board, XqP current_player, uint32_t round,
+XqGame(const XqB& board, XqP current_player, uint32_t current_round,
        std::optional<XqA> last_action) noexcept;
 ```
 
@@ -90,11 +90,13 @@ replaying moves.
 XqB board_{};                                  // 90 B
 uint32_t round_ = 0;                           // 4 B
 XqP current_player_ = false;                   // 1 B (Red starts)
+uint64_t position_hash_ = 0;                   // 8 B (running Zobrist hash)
 std::array<XqA, *kMaxRounds> action_history_{}; // 600 B
 std::array<uint64_t, *kMaxRounds + 1> position_history_{};  // 2408 B
 std::array<uint8_t, *kMaxRounds + 1> position_history_valid_{};  // 301 B
-// Each Apply also stores: captured piece code + repetition-counter
-// delta, packed into one byte per ply, used by Undo.
+// Each Apply stores the captured piece (sign in bit 7, type magnitude
+// in bits 0..6) packed into one byte per ply, used by Undo to restore
+// the capture.
 std::array<uint8_t, *kMaxRounds> apply_undo_log_{};     // 300 B
 ```
 
@@ -110,8 +112,8 @@ the memory note in
      `round_`.
   3. Update Zobrist hash incrementally; push to
      `position_history_[round_]`.
-  4. Pack captured piece + irreversible-flag into
-     `apply_undo_log_[round_-1]`.
+  4. Pack the captured piece (sign in bit 7, type magnitude in
+     bits 0..6) into `apply_undo_log_[round_-1]`.
 - `UndoLastAction`:
   1. No-op if `round_ == 0`.
   2. Decrement `round_`, flip `current_player_`.

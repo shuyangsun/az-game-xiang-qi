@@ -1,5 +1,9 @@
 # AlphaZero API Contract
 
+_Status: targets alpha-zero-api **v0.2.1** (pinned as `ALPHA_ZERO_API_GIT_TAG`
+in [CMakeLists.txt](../CMakeLists.txt)). Cross-refs:
+[migrations.md](./migrations.md), [defaults.md](./defaults.md)._
+
 A condensed reference to the upstream
 [shuyangsun/alpha-zero-api](https://github.com/shuyangsun/alpha-zero-api)
 contract this project implements. Read this once before working on
@@ -48,7 +52,7 @@ instances by value.
 | `LastPlayer()`        | `std::optional<player_t>` (nullopt before any move) |
 | `LastAction()`        | `std::optional<action_t>` (nullopt before any move) |
 | `CanonicalBoard()`    | `board_t` from the current player's perspective     |
-| `ValidActions()`      | `std::vector<action_t>` — deterministic, no dupes   |
+| `ValidActionsInto(out)` | `size_t` — fills caller-owned `out` (`std::array<action_t, kMaxLegalActions>&`) and returns the count; deterministic order, no dupes; allocation-free |
 | `IsOver()`            | `bool`                                              |
 | `GetScore(player)`    | `float` in `[-1, +1]` from `player`'s perspective   |
 | `PolicyIndex(action)` | `size_t` in `[0, kPolicySize)`; bijection           |
@@ -74,12 +78,12 @@ API library. Concrete games never implement it themselves.
 
 - `Evaluation { float value; std::vector<float> probabilities; }` — what
   the network produced. `value ∈ [-1, +1]` from the current player's
-  perspective. `probabilities[i]` is the prior for
-  `game.ValidActions()[i]`.
+  perspective. `probabilities[i]` is the prior for the i-th action
+  written by `game.ValidActionsInto(buf)` (i.e. `buf[i]` for `i < count`).
 - `TrainingTarget { float z; std::vector<float> pi; }` — what the
   network is asked to learn. `z` is the actual game outcome from
   `GetScore(state.CurrentPlayer())`. `pi[i]` is the MCTS visit-count
-  prior for `game.ValidActions()[i]`.
+  prior for the i-th action written by `game.ValidActionsInto(buf)`.
 - `CompactPolicyTargetBlob` / `CompactPolicyOutputBlob` — compact
   policy carriers for networks with a policy row sized to
   `kMaxLegalActions`. They pair each compact row position with the
@@ -103,7 +107,7 @@ the `CompactPolicyTargetBlob` are part of the public ABI:
   without an explicit index map.
 
 Any change to this ordering — including reorderings of
-`ValidActions`, changes to the sort comparator, or repurposing of
+`ValidActionsInto`, changes to the sort comparator, or repurposing of
 the padding sentinel — invalidates previously trained weights and
 **must** be treated as a breaking change. See
 [game_design_details/action_encoding.md](./game_design_details/action_encoding.md)
@@ -135,11 +139,12 @@ When `augmenter = yes`:
 - `IInferenceAugmenter<G>::Interpret(original, augmented, evals) ->
 Evaluation` — combine per-variant evaluations back into one for
   `original`, inverting whatever symmetry was applied so the returned
-  probabilities align with `original.ValidActions()`.
+  probabilities align with `original.ValidActionsInto(...)`.
 - `ITrainingAugmenter<G>::Augment(game, target) ->
 std::vector<std::pair<G, TrainingTarget>>` — return every augmented
-  `(game, target)` pair. The augmented `pi[i]` corresponds to the
-  augmented game's `ValidActions()[i]`. `target.z` is preserved.
+  `(game, target)` pair. The augmented `pi[i]` corresponds to the i-th
+  entry the augmented game writes via `ValidActionsInto(buf)`. `target.z`
+  is preserved.
 
 See [augmentation_strategy.md](./augmentation_strategy.md) for design
 guidance.

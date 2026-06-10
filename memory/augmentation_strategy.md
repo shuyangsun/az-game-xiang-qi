@@ -76,7 +76,7 @@ classes can share it. The math is the inverse of whatever transform
 
 `Interpret(original, augmented, evaluations)` walks each variant,
 inverts the symmetry on each per-variant action probability, and
-accumulates into a vector indexed by `original.ValidActions()`. The
+accumulates into a vector indexed by `original.ValidActionsInto()`. The
 canonical aggregation is **mean** for both value and probabilities:
 
 ```text
@@ -86,7 +86,7 @@ combined.probabilities  = mean over i of inverse(evaluations[i].probs)
 
 Keep the inverse map seeded by `original.PolicyIndex(action)` so
 augmented actions land in the right slot regardless of how each
-variant orders its `ValidActions()`. The tic-tac-toe inference
+variant orders its `ValidActionsInto()`. The tic-tac-toe inference
 implementation upstream is a good template.
 
 ## Training augmenter equivariance
@@ -94,8 +94,12 @@ implementation upstream is a good template.
 `ITrainingAugmenter::Augment(game, target)` must permute `target.pi`
 **alongside** the augmented board. Returning `target` unchanged trains
 the network to be augmentation-invariant rather than equivariant —
-wrong, and the placeholder in `train.cc` does this on purpose so the
-template compiles before TASK-TRAIN-IMPL is done.
+wrong. `XqTrainingAugmenter::Augment` in
+[src/xq/train/train.cc](../src/xq/train/train.cc) implements this: for
+each variant it inverse-maps the variant's `ValidActionsInto()` actions
+back to the original frame (via `internal::InverseTransformAction`) and
+gathers `target.pi` through `PolicyIndex`, so each variant's `pi[j]`
+aligns with that variant's own action ordering.
 
 `target.z` is preserved unchanged — board symmetries are
 score-preserving.

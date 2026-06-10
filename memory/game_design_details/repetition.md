@@ -47,10 +47,11 @@ match) is left as a follow-up.
 
 ## Constructor seeding
 
-The Zobrist key table is a `constexpr std::array<uint64_t, ...>`
-populated from a small deterministic xorshift PRNG seeded with a
-fixed constant. Same keys every program run, no platform
-variance.
+The Zobrist key table is an `extern const std::array<uint64_t, ...>`
+produced at compile time by a constexpr deterministic xorshift64 PRNG
+(`MakeZobristPieceKeys` / `MakeZobristBlackKey` in
+`src/xq/game/internal.cc`), each seeded with a fixed constant. Same
+keys every program run, no platform variance.
 
 ## Interaction with snapshot constructor
 

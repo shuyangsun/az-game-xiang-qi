@@ -51,7 +51,7 @@ Mirror of the default serializer:
 
 - Validates `output.size() == kPolicySize + 1`.
 - Returns `Evaluation{output[0], gather of output[1 + PolicyIndex(a)] for
-  a in ValidActions()}`.
+  a in ValidActionsInto()}`.
 - Returns the gathered values **verbatim** — no implicit softmax or
   renormalization. If the network emits logits, compose your own
   softmax (the tic-tac-toe example does this in its custom

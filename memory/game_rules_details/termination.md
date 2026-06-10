@@ -51,7 +51,7 @@ If none of the above is true, `IsOver()` returns `false`.
   treat "General missing" as `IsOver() == true` with the side
   whose General is missing scored `-1`.
 - A move that exposes one's own General to check is illegal and
-  must not appear in `ValidActions()`. This includes Flying
+  must not appear in `ValidActionsInto()`. This includes Flying
   General exposures.
 - Repetition counters reset on undo. `UndoLastAction()` must
   restore the position-occurrence map exactly so that

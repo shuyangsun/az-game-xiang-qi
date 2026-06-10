@@ -71,7 +71,7 @@ pattern.
 
 ## Determinism inside the engine
 
-`ValidActions()` ordering is part of the contract. A training tuple
+`ValidActionsInto()` ordering is part of the contract. A training tuple
 `(state, π, z)` is recorded under one ordering and replayed against a
 network trained under another — if the orderings disagree, the policy
 labels are scrambled. The ordering must depend only on the current
@@ -87,7 +87,7 @@ mapping silently corrupts training.
 `error_t` is for `ActionFromString` and the deserializer. It is **not**
 called on the MCTS hot path — `ApplyActionInPlace` does not validate
 its input. The engine is responsible for only ever passing actions
-returned by `ValidActions()`. Behavior on an invalid action is
+returned by `ValidActionsInto()`. Behavior on an invalid action is
 undefined.
 
 If the design needs validated apply for debug builds, add a separate

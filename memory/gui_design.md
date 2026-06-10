@@ -1,5 +1,8 @@
 # GUI Design
 
+_Status: implemented. The GUI under [`gui/`](../gui/) is built and shipping;
+this doc records the design and the as-built decisions._
+
 Design for the in-repo Xiang Qi GUI under [`gui/`](../gui/). The GUI
 serves two audiences:
 
@@ -13,10 +16,11 @@ serves two audiences:
    model itself is CUDA-only and far too large for the browser, so
    the AlphaZero repo runs a C++ inference daemon
    (`alphazero_serve`) and plugs a `fetch`-based `MoveProvider`
-   into `useXqGame` for the AI side. See
-   [alpha-zero/docs/gui_design.md](../../alpha-zero/docs/gui_design.md)
-   for the consuming side, including the `GameKit` interface this
-   repo conforms to.
+   into `useXqGame` for the AI side. See the upstream alpha-zero
+   repo's `docs/gui_design.md` ("Game kit: the generic seam") — in
+   the sibling `alpha-zero` repo, not part of this repo — for the
+   consuming side, including the `GameKit` interface this repo
+   conforms to.
 
 Both audiences must work from the **same** `XqGame` C++
 implementation — duplicating the rules in TypeScript is a
@@ -74,7 +78,7 @@ training validation).
                 │  TanStack Start app (gui/)   │
                 │                              │
                 │  routes/index.tsx            │
-                │   └─ <SelfPlayPage>          │
+                │   └─ Home (self-play page)   │
                 │        ├─ <XiangQiBoard>     │  ◀── pure view
                 │        ├─ <GameStatusBar>    │
                 │        ├─ <MoveList>         │
@@ -179,10 +183,21 @@ class XqGameJs {
   emscripten::val actionFromString(std::string s) const;
 };
 
-// Optional, behind a debug flag — used by <DebugPanel>.
+// Used by the debug surfaces. Registered alongside XqGameJs.
 class XqSerializerJs {
   emscripten::val serializeCurrentState(const XqGameJs& g);
   emscripten::val serializePolicyOutput(const XqGameJs& g, /* probe */);
+  emscripten::val getAugmentationStats(const XqGameJs& g);
+};
+
+// Single-call debug probe consumed by <DebugPanel>. Returns the full
+// per-move debug snapshot — valid-action count, dense state vector
+// length + self-round-trip flag, canonical board, and the
+// per-augmentation-variant boards/action-counts — so the panel makes
+// one call per move. Only registered when the module is built with
+// this binding; the TS wrapper degrades gracefully when absent.
+class XqDebugProbeJs {
+  emscripten::val probe(const XqGameJs& g);
 };
 ```
 
@@ -193,9 +208,9 @@ Notes:
   stay in C++. JS gets opaque `{from, to}` byte pairs and the
   per-call `validActions()` ordering.
 - `applyValidActionByIndex(i)` keeps the JS side honest:
-  `XqGame::ApplyActionInPlace` does **not** validate
-  ([game.h](../include/xq/game.h) lines 339–355), so the shim must
-  only accept actions returned by `ValidActionsInto`.
+  `XqGame::ApplyActionInPlace` does **not** validate its input
+  ([game.h](../include/xq/game.h) `ApplyActionInPlace`), so the shim
+  must only accept actions returned by `ValidActionsInto`.
 - The shim does **not** persist `XqGame` instances across
   module-load boundaries; one game per page load is enough for the
   self-play debug use case.
@@ -231,6 +246,7 @@ interface XqEngine {
   // applyAction/undo so React's reference equality drives re-renders.
   readonly snapshot: {
     board: Int8Array; // length 90, row-major
+    canonicalBoard: Int8Array; // canonical frame, for the debug panel
     currentPlayer: Player;
     currentRound: number;
     lastPlayer: Player | null;
@@ -239,7 +255,7 @@ interface XqEngine {
     isOver: boolean;
     score: { red: number; black: number };
     repeatCount: number; // 1..3
-    inCheck: boolean; // derived: see below
+    inCheck: boolean; // from XqGame::IsInCheck()
   };
 
   // Mutations. Throw if the action is not in validActions.
@@ -250,17 +266,30 @@ interface XqEngine {
   // String I/O.
   actionToString(a: Action): string;
   actionFromString(s: string): Action | { error: string };
+  boardReadableString(): string;
+
+  // Debug probes — null when the WASM module lacks the debug binding.
+  getDebugStats(): {
+    stateVectorLength: number;
+    policyVectorLength: number;
+    variantCount: number;
+    variantActionCounts: number[];
+  } | null;
+  // The `snapshot` arg is threaded in on purpose so React Compiler
+  // infers it as a dependency and re-runs the probe each move/undo.
+  getDebugProbe(snapshot: Snapshot): DebugProbe | null;
 }
+
+// The AI side supplies a MoveProvider per player; the default for both
+// sides is human-via-clicks.
+type MoveProvider = (snapshot: Snapshot) => Promise<Action>;
 ```
 
-`inCheck` is **not** in the C++ API today (it's implicit in
-`ValidActionsInto`). For the GUI's check indicator we either:
-
-- Add a `bool IsInCheck() const noexcept` observer to `XqGame` (cheap
-  — uses the same threat-detection logic as `ValidActionsInto`'s
-  legality filter). Recommended.
-- Or derive it in JS by checking `validActions.length == 0 &&
-!isOver` plus a check probe — fragile, skip.
+`inCheck` comes from `XqGame::IsInCheck()`
+([game.h](../include/xq/game.h)), forwarded by `XqGameJs::isInCheck()`
+in the shim and read into `Snapshot.inCheck` by `XqGameWrapper`. It
+reuses the same threat-detection logic as `ValidActionsInto`'s
+legality filter.
 
 `useXqGame()` is a thin hook that owns one `XqEngine`, exposes
 `snapshot`, and returns memoized `applyAction` / `undoLastAction` /
@@ -272,7 +301,9 @@ instance long-lived (no per-move alloc).
 
 All under `gui/src/components/xiangqi/`. The board and pieces are
 **presentational only** — they take props and emit callbacks. The
-self-play page wires them to `useXqGame`.
+self-play page wires them to `useXqGame`. App chrome lives outside
+`xiangqi/`: `gui/src/components/ThemeToggle.tsx` and shadcn-style
+primitives under `gui/src/components/ui/`.
 
 ### `<XiangQiBoard>`
 
@@ -289,7 +320,7 @@ Props (sketch):
   lastMove: Action | null;             // for from/to highlight
   inCheckCell: number | null;          // general's cell when in check
   onCellClick(cell: number): void;
-  pieceStyle?: "char" | "icon";        // default "char"
+  className?: string;                  // layout override for reuse
 }
 ```
 
@@ -363,20 +394,28 @@ Sections:
    uniform-`pi` probe. Prints state vector length, policy vector
    length, and the deserializer round-trip status. Identical
    semantics to `PrintSerializationDebug` in
-   [main.cc](../src/main.cc) lines 116–163.
+   [main.cc](../src/main.cc).
 5. **Augmentation** — variant count and per-variant action count
    from `XqInferenceAugmenter::Augment`. Identical to
-   `PrintAugmentationDebug` in [main.cc](../src/main.cc) lines
-   165–185.
+   `PrintAugmentationDebug` in [main.cc](../src/main.cc).
 
-The debug panel is gated by an env flag (e.g.,
-`VITE_XQ_DEBUG_PANEL=1`) so the AlphaZero embedding does not
-accidentally ship serializer probes.
+The debug panel renders by default in the self-play page and is
+suppressed by setting `VITE_XQ_HIDE_DEBUG_PANEL` (an opt-out flag read
+in `routes/index.tsx`). Independently, the kit excludes it from
+`xqGameKit` unless the WASM module was built with the `XqDebugProbeJs`
+binding, so the AlphaZero embedding never ships serializer probes by
+accident.
+
+The panel is composed from smaller pieces that also ship for reuse:
+`<MiniBoard>` (small read-only board), `<AugmentationsGrid>`
+(per-variant mini-boards from the augmenter), and the
+`<DebugStatTiles>` set (`ActionCountTile`, `SerializationProbeTile`,
+`VariantCountTile`).
 
 ## Self-play page (this repo)
 
-`gui/src/routes/index.tsx` becomes the self-play page (replacing
-the placeholder `<Home>`). Layout:
+`gui/src/routes/index.tsx` is the self-play page; its route component
+is `Home`. Layout:
 
 ```text
 ┌────────────────────────────────────────────────────────────┐
@@ -402,8 +441,8 @@ selectedCell, to: cell})`, then clear `selectedCell`.
    - Otherwise clear `selectedCell`.
 3. After every mutation: status bar, move list, debug panel and
    board re-render from the new snapshot.
-4. When `snapshot.isOver`, show a `<GameOverDialog>` with the
-   winner / draw reason and a "New game" button.
+4. When `snapshot.isOver`, the `<GameStatusBar>` shows the game-over
+   state and final score; a new game is started from `<ControlBar>`.
 
 Keyboard shortcuts (debug ergonomics): `u` for undo, `n` for new
 game, `f` for flip board, `Esc` to clear selection, `?` for a
@@ -414,10 +453,9 @@ help overlay listing the action notation.
 The AlphaZero repo imports this UI as a **game kit** — one
 TypeScript module that bundles the engine hook, presentational
 components, action codec, and a server wire-format encoder behind a
-single `GameKit` interface defined upstream
-([alpha-zero/docs/gui_design.md](../../alpha-zero/docs/gui_design.md),
-"Game kit: the generic seam"). To avoid the classic "extract it
-later" trap, lay it out for reuse from day one:
+single `GameKit` interface defined upstream (the sibling `alpha-zero`
+repo's `docs/gui_design.md`, "Game kit: the generic seam"; not part of
+this repo). The layout is built for reuse from day one:
 
 - **One entry point**: `gui/src/kit.ts` exports a `GameKit`-
   conforming object composing the engine and component modules
@@ -426,8 +464,12 @@ later" trap, lay it out for reuse from day one:
   swap games on that side, the AlphaZero repo rewrites the alias
   to a sibling game's kit; nothing in this repo needs to know.
 - **Public exports** live under `gui/src/components/xiangqi/index.ts`,
-  `gui/src/engine/index.ts`, and `gui/src/kit.ts`. Anything not
-  re-exported there is a private implementation detail.
+  `gui/src/engine/index.ts`, and `gui/src/kit.ts`. The kit composes
+  wrapped `Kit*` presentational variants from
+  `gui/src/kit-components.tsx` (which re-wrap the `components/xiangqi`
+  components into the generic snapshot+onAction shape the shell
+  expects). Anything not re-exported there is a private
+  implementation detail.
 - **AI move source**: `useXqGame()` accepts an optional
   `moveProvider: { red?: MoveProvider; black?: MoveProvider }`.
   A `MoveProvider` returns a `Promise<Action>` given the current
@@ -438,11 +480,11 @@ later" trap, lay it out for reuse from day one:
   about where the action came from.
 - **Server wire encoder**: `kit.ts` exports
   `encodeSnapshotForServer(snapshot) -> { board, current_player,
-  current_round, history }`. The AlphaZero C++ daemon rehydrates
-  an `XqGame` from this payload via the same `bindings.cc` shim
-  used by the browser, keeping one source of truth for the
-  representation. `XqGame::kHistoryLookback == 0` means `history`
-  is always `[]` for XQ today.
+  current_round }` (the `ServerStatePayload` type). The AlphaZero C++
+  daemon rehydrates an `XqGame` from this payload via the same
+  `bindings.cc` shim used by the browser, keeping one source of truth
+  for the representation. Because `XqGame::kHistoryLookback == 0`,
+  Xiang Qi is Markov and the payload carries no history field.
 - **Debug panel exclusion**: board, status bar, and move list
   have no dependency on the debug panel. `kit.ts` does **not**
   expose `<DebugPanel>` in its `GameKit` object, so the AlphaZero
@@ -455,46 +497,54 @@ later" trap, lay it out for reuse from day one:
   sizing via CSS variables (`--xq-board-cell-size`,
   `--xq-piece-size`, …). No hard pixel sizes inside components.
 
-### Remaining reuse-contract work
+### Reuse-contract status
 
-The kit-export contract above is partially in place (`moveProvider`,
-`loadXqWasm({wasmUrl, jsUrl})`, and the component `index.ts`
-barrels already exist). The remaining items, all additive:
+The kit is implemented. `gui/src/kit.ts` exports `xqGameKit` (a
+`GameKit<Snapshot, Action, Player>`) composing `useXqGame`, the
+presentational components, `actionToString` / `actionFromString`, and
+`encodeSnapshotForServer`; `moveProvider` and
+`loadXqWasm({ wasmUrl, jsUrl })` are wired through. The generic
+snapshot+onAction wrappers (`XiangQiKitBoard`, `XiangQiKitStatusBar`,
+`XiangQiKitMoveList`, and the debug surface `XiangQiKitDebugPanel` /
+`XiangQiKitMiniBoard` / `XiangQiKitAugmentationsGrid` /
+`XiangQiKitDebugTiles`) live in `gui/src/kit-components.tsx`, and
+`gui/src/kit.test.ts` covers the action codec, server encoder, and
+`meta`. The shell resolves all of this through the `#game-kit` alias
+pointing at `gui/src/kit.ts`.
 
-1. **Add `gui/src/kit.ts`.** Composes `useXqGame`,
-   `<XiangQiBoard>`, `<GameStatusBar>`, `<MoveList>`,
-   `actionToString`, `actionFromString`, and a new
-   `encodeSnapshotForServer` into one `GameKit`-conforming object.
-2. **Accept `className` props** on `<XiangQiBoard>`,
-   `<GameStatusBar>`, and `<MoveList>`. Today these hard-code
-   Tailwind classes; the AlphaZero shell needs layout-level
-   overrides.
-3. **Read cell size from `--xq-board-cell-size`** instead of the
-   `const cellSize = 50` constant in `<XiangQiBoard>`. Lets the
-   AlphaZero shell shrink the board for its side-panel-heavy
-   `<GamePlayPage>` layout.
+The earlier additive items are all done: `<XiangQiBoard>`,
+`<GameStatusBar>`, and `<MoveList>` accept `className` overrides, and
+`<XiangQiBoard>` reads its cell size from the `--xq-board-cell-size`
+CSS variable (`readCellSize()`, default `DEFAULT_CELL_SIZE = 56`)
+rather than a hardcoded constant.
 
 ## Build, dev, and test workflow
 
 ### One-time setup
 
-- Install Emscripten (or use the `emsdk` Docker image). Document the
-  expected version in this design doc once we pin it.
-- Add a CMake preset `wasm` that selects the Emscripten toolchain
-  and builds only the `xq_wasm` target.
+- No local Emscripten install is required: `wasm:build` runs the
+  `emscripten/emsdk:latest` Docker image. The image tag is currently
+  unpinned (`:latest`) — pin it here once a version is chosen.
+- A `wasm` CMake preset exists in
+  [CMakePresets.json](../CMakePresets.json) (it selects the Emscripten
+  toolchain and builds only the `xq_wasm` target) for local emsdk
+  users, though the Dockerized `wasm:build` script does not go through
+  it.
 
-### Top-level script
+### wasm:build script
 
-Add a `bun run wasm:build` script in `gui/package.json` that:
-
-1. Invokes `cmake --preset wasm && cmake --build --preset wasm`.
-2. Copies `build/wasm/src/wasm/xq.{js,wasm}` into
-   `gui/public/wasm/`.
+`gui/package.json` defines `wasm:build`, which runs the
+`emscripten/emsdk:latest` Docker image and inside it executes
+`emcmake cmake -S . -B build/wasm -DCMAKE_BUILD_TYPE=Release &&
+cmake --build build/wasm --target xq_wasm`. The generated `xq.js` /
+`xq.wasm` are copied into `gui/public/wasm/` by a `POST_BUILD`
+`add_custom_command` in
+[src/wasm/CMakeLists.txt](../src/wasm/CMakeLists.txt) — not by the npm
+script.
 
 `bun run dev` is unchanged — it picks up the prebuilt
-`gui/public/wasm/xq.wasm`. CI runs `wasm:build` before
-`bun run build`. We can add `bun run dev:full` later that chains
-both if the manual step becomes annoying.
+`gui/public/wasm/xq.wasm`. Re-run `wasm:build` whenever the C++ engine
+or `bindings.cc` changes.
 
 ### Tests
 
@@ -512,23 +562,29 @@ both if the manual step becomes annoying.
   board for a fixed sequence of positions. Manual verification
   only; not in CI.
 
+## Resolved decisions
+
+- **`IsInCheck` observer**: added to `XqGame`
+  ([game.h](../include/xq/game.h) `IsInCheck()`) rather than
+  duplicated in the WASM shim; the shim forwards it via
+  `XqGameJs::isInCheck()`, so no threat logic is duplicated.
+- **Piece style**: shipped Chinese-character glyphs only
+  (`帥仕相馬車砲兵` for Red, `將士象傌俥炮卒` for Black); there is no
+  `"icon"` board style, and `<XiangQiBoard>` has no `pieceStyle` prop.
+
 ## Open questions
 
 1. **Embind vs. raw exports**: Embind is ergonomic but adds ~50 KiB
    of glue. For a board that fits on one screen this is fine, but
    the AlphaZero repo will also ship its own WASM (the network).
    Worth measuring once we have the first build.
-2. **`IsInCheck` observer**: do we add it to `XqGame` (clean) or
-   compute it in the WASM shim (decoupled but duplicates threat
-   logic)? Lean toward adding it to `XqGame`.
-3. **Piece artwork**: ship character glyphs first; consider SVG
-   piece icons later if the AlphaZero embedding wants a more
-   polished feel.
-4. **Routing in the AlphaZero repo embedding**: the AlphaZero repo
+2. **Piece artwork**: consider SVG piece icons later if the AlphaZero
+   embedding wants a more polished feel than the character glyphs.
+3. **Routing in the AlphaZero repo embedding**: the AlphaZero repo
    may not use TanStack Router. The component subtree must work
    without `createFileRoute` — only `routes/index.tsx` knows about
    the router.
-5. **Threading**: do we need a Web Worker for the WASM module? Not
+4. **Threading**: do we need a Web Worker for the WASM module? Not
    for self-play (every call is microsecond-scale), but the
    AlphaZero repo's network inference will want one. Keep the
    engine wrapper synchronous for now; revisit when AI integration

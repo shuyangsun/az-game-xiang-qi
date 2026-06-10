@@ -15,7 +15,7 @@ struct XqA {
 
 ## Sentinel "no action"
 
-- `XqA{90, 90}` is the sentinel. `ValidActions()` never returns
+- `XqA{90, 90}` is the sentinel. `ValidActionsInto()` never writes
   it. It exists so default-constructed `action_history_` slots
   never collide with real moves and so undo can detect "nothing
   to undo".
@@ -40,7 +40,7 @@ constexpr size_t PolicyIndex(const XqA& a) const noexcept {
 - Slots whose `from`/`to` correspond to physically impossible
   moves (e.g., source empty, destination off-board) are still
   valid policy slots; they are simply masked out by
-  `ValidActions()` and stay `0` in the policy serializer.
+  `ValidActionsInto()` and stay `0` in the policy serializer.
 
 ## ActionToString format
 
@@ -61,18 +61,20 @@ The format is deterministic and round-trips through
 column letters, and rejects malformed input with the appropriate
 `XqError`.
 
-## ValidActions ordering
+## ValidActionsInto ordering
 
 Iterate cells `c` in `[0, 90)`. For each cell whose piece
 belongs to the current player, generate all reachable
 destinations in a piece-type-specific deterministic order
 (e.g., orthogonal directions in N, E, S, W order; diagonal in
-NE, SE, SW, NW order). Push each `XqA{from, to}` into the
-result vector. After every candidate is generated, filter out
-those that leave own General in check or violate Flying General.
+NE, SE, SW, NW order). Write each `XqA{from, to}` into the
+caller-owned `out` buffer. After every candidate is generated,
+filter out those that leave own General in check or violate
+Flying General.
 
 The exact iteration order is part of the contract: re-running
-`ValidActions()` on the same state returns the same vector.
+`ValidActionsInto()` on the same state writes the same actions
+into `out[0..count)`.
 
 ## Compact serializer action row
 
@@ -96,14 +98,14 @@ input slot `i`.
 The ordering itself is canonical `(from, to)` ascending — first by
 `from`, then by `to`. Concretely:
 
-- Build the candidate list by running `ValidActions()` and mapping
-  each action through `CanonicalAction`.
+- Build the candidate list by running `ValidActionsInto()` and
+  mapping each action through `CanonicalAction`.
 - Sort by `(canonical.from, canonical.to)` ascending.
 - Pad the tail to `kMaxLegalActions = 104` with the sentinel.
 
 Because this coupling is load-bearing for any trained checkpoint,
 the ordering is fixed at the **API contract** level: changes to the
-sort comparator, to `ValidActions` iteration order, or to the
+sort comparator, to `ValidActionsInto` iteration order, or to the
 sentinel value silently invalidate previously trained weights and
 must be treated as a breaking ABI change for the compact head. See
 `api_contract.md` ("Compact policy head ordering").
