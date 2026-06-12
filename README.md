@@ -2,6 +2,13 @@
 
 C++ implementation of Xiang Qi (Chinese Chess) game logic for the [alpha-zero-api](https://github.com/shuyangsun/alpha-zero-api) AlphaZero training and inference framework.
 
+## Project Memory
+
+The primary design and retrieval corpus lives in [`memory/`](memory/). Start
+with [`memory/README.md`](memory/README.md) for the indexed map to the API
+contract, Xiang Qi rules, `XqGame` design, serializer and augmentation strategy,
+GUI architecture, task history, and unit-test coverage.
+
 ## Getting Started
 
 ### Building the Game Engine (C++)
